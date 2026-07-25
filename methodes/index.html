@@ -1,0 +1,1669 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MYCenter Prep — Automatisation BOM + PnP</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<style>
+  :root {
+    --bg: #0a0c12;
+    --surface: #1a2030;
+    --surface2: #161b27;
+    --border: #262e42;
+    --border2: #333d55;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #64748b;
+    --blue: #F07B1F;
+    --blue-bg: #2a1f10;
+    --pp-blue: #5BC4D8;
+    --green: #86c564;         --green-bg: #EAF3DE;  --green-badge: #3B6D11;
+    --amber: #eab676;         --amber-bg: #FAEEDA;  --amber-badge: #854F0B;
+    --red: #f09595;           --red-bg: #FCEBEB;    --red-badge: #A32D2D;
+    --pink: #ED93B1;          --pink-bg: #FBEAF0;   --pink-badge: #993556;
+    --radius: 6px;
+    --radius-lg: 10px;
+    --mono: "SF Mono", "Cascadia Code", Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 40px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .logo { display:flex; align-items:center; gap:9px; flex-shrink: 0; }
+  .logo-text { display:flex; align-items:center; gap:0; font-size:13px; font-weight:500; }
+  .logo-text .lt { color:#fff; }
+  .logo-text .ls { color:#444; margin:0 3px; }
+  .logo-text .lo { color:var(--blue); }
+  .hdr-note { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+
+  header h1 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  header span.subtitle {
+    font-size: 13px;
+    color: var(--text3);
+    font-family: var(--mono);
+  }
+
+  .pipeline {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 0 40px;
+    margin: 32px 0 0;
+    overflow-x: auto;
+  }
+
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--text3);
+    background: var(--surface);
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+
+  .step.active { border-color: var(--blue); color: var(--blue); }
+  .step.done { border-color: var(--green); color: var(--green); }
+
+  .step-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .arrow {
+    width: 32px; height: 1px;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  main {
+    flex: 1;
+    padding: 32px 40px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    max-width: min(96vw, 1400px);
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+  }
+
+  .card-label {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .card h2 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .card p {
+    font-size: 12px;
+    color: var(--text3);
+    margin-bottom: 18px;
+    line-height: 1.5;
+  }
+
+  .drop-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: 8px;
+    padding: 28px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--blue);
+    background: rgba(79, 110, 247, 0.06);
+  }
+
+  .drop-zone.loaded {
+    border-color: var(--green);
+    background: rgba(0, 229, 160, 0.05);
+  }
+
+  .drop-icon {
+    font-size: 28px;
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .drop-zone input[type=file] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+
+  .drop-zone .filename {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--green);
+    margin-top: 6px;
+  }
+
+  .drop-hint {
+    font-size: 12px;
+    color: var(--text3);
+  }
+
+  .drop-hint strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .stats-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  .stat {
+    flex: 1;
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-family: var(--mono);
+  }
+
+  .stat-val {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--blue);
+  }
+
+  .stat-lbl {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 2px;
+  }
+
+  /* Options panel */
+  .options-card {
+    grid-column: span 2;
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+  }
+
+  .option-group {
+    flex: 1;
+  }
+
+  .option-group label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .option-group label:last-child { border-bottom: none; }
+
+  .option-group input[type=checkbox] {
+    accent-color: var(--blue);
+    width: 15px; height: 15px;
+  }
+
+  .option-desc {
+    font-size: 11px;
+    color: var(--text3);
+    margin-left: 25px;
+    margin-top: -6px;
+    margin-bottom: 4px;
+  }
+
+  /* Run button */
+  .run-section {
+    grid-column: span 2;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .btn-run {
+    background: var(--blue);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 13px 32px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .btn-run:disabled {
+    background: var(--surface2);
+    color: var(--text3);
+    cursor: not-allowed;
+  }
+
+  .btn-run:not(:disabled):hover {
+    background: #6b84f9;
+    transform: translateY(-1px);
+  }
+
+  /* Results */
+  .results-card {
+    grid-column: span 2;
+  }
+
+  .results-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .result-stat {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-family: var(--mono);
+  }
+
+  .result-stat .val {
+    font-size: 24px;
+    font-weight: 600;
+  }
+
+  .result-stat .val.ok { color: var(--green); }
+  .result-stat .val.warn { color: var(--amber); }
+  .result-stat .val.err { color: var(--red); }
+
+  .result-stat .lbl {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 4px;
+  }
+
+  .download-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .btn-dl {
+    border: 1.5px solid var(--green);
+    background: transparent;
+    color: var(--green);
+    border-radius: 7px;
+    padding: 10px 22px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-dl:hover {
+    background: rgba(0, 229, 160, 0.1);
+  }
+
+  .btn-dl.secondary {
+    border-color: var(--blue);
+    color: var(--blue);
+  }
+
+  .btn-dl.secondary:hover {
+    background: rgba(79, 110, 247, 0.1);
+  }
+
+  /* Log */
+  .log {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+    max-height: 160px;
+    overflow-y: auto;
+    margin-top: 16px;
+  }
+
+  .log-line { display: flex; gap: 10px; }
+  .log-time { color: var(--text3); flex-shrink: 0; }
+  .log-ok { color: var(--green); }
+  .log-warn { color: var(--amber); }
+  .log-err { color: var(--red); }
+  .log-info { color: var(--text); }
+
+  /* Unmatched table */
+  .unmatched-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12px;
+    margin-top: 12px;
+  }
+
+  .unmatched-table th {
+    text-align: left;
+    padding: 8px 12px;
+    background: var(--surface2);
+    color: var(--text3);
+    font-weight: 400;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+  }
+
+  .unmatched-table td {
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--amber);
+  }
+
+  .unmatched-table tr:last-child td { border-bottom: none; }
+
+  .section-title {
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--text3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    margin-top: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .hidden { display: none !important; }
+
+
+  
+
+  /* GSheet client database */
+  .gsheet-bar {
+    grid-column: span 2;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .gsheet-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+
+  .gsheet-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--text3);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+
+  .gsheet-dot.ok  { background: var(--green); }
+  .gsheet-dot.err { background: var(--red); }
+  .gsheet-dot.loading { background: var(--amber); animation: pulse 1s infinite; }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .gsheet-label { color: var(--text3); }
+  .gsheet-info  { color: var(--text); }
+  .gsheet-client-badge {
+    background: var(--blue);
+    color: white;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .gsheet-mpn-badge {
+    background: var(--amber-bg);
+    color: var(--amber-badge);
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <img src="../shared/picto-pp.png" alt="Proto Process" width="24" height="24" style="object-fit:contain" onerror="this.style.display='none'">
+    <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">MYCenter Prep</span></span>
+  </div>
+  <span class="subtitle">Automatisation BOM + Centroïdes → Import MYCenter</span>
+  <div style="flex:1"></div>
+  <span class="hdr-note" id="hdr-version"></span>
+</header>
+
+<div class="pipeline">
+  <div class="step done" id="step1"><div class="step-dot"></div>Chargement fichiers</div>
+  <div class="arrow"></div>
+  <div class="step active" id="step2"><div class="step-dot"></div>Jointure BOM ↔ CMP</div>
+  <div class="arrow"></div>
+  <div class="step" id="step3"><div class="step-dot"></div>Nettoyage &amp; filtrage</div>
+  <div class="arrow"></div>
+  <div class="step" id="step4"><div class="step-dot"></div>Génération fichiers</div>
+  <div class="arrow"></div>
+  <div class="step" id="step5"><div class="step-dot"></div>Export</div>
+</div>
+
+<main>
+
+
+  <!-- Barre GSheet -->
+  <div class="gsheet-bar" id="gsheet-bar">
+    <div class="gsheet-status">
+      <div class="gsheet-dot ok" id="gsheet-dot"></div>
+      <span class="gsheet-label">Base clients :</span>
+      <span class="gsheet-info" id="gsheet-info">24 clients (données intégrées)</span>
+    </div>
+    <div id="gsheet-badges" style="display:flex;gap:8px"><div class="gsheet-client-badge">MERIO</div></div>
+    <button onclick="loadClientDB()" title="Rafraîchir depuis GSheet" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text3);cursor:pointer;padding:3px 8px;font-size:13px">↻</button>
+    <select id="client-select" onchange="selectClientManual(this.value)" style="background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:11px;padding:3px 8px;cursor:pointer"><option value="">— Sélectionner client —</option><option value="AMG">AMG</option><option value="ANNECY ELEC">ANNECY ELEC ★</option><option value="ARCEL">ARCEL</option><option value="CEA CADARACHE">CEA CADARACHE</option><option value="CERN">CERN</option><option value="CORDOUAN">CORDOUAN</option><option value="HORIBA">HORIBA</option><option value="ILL">ILL</option><option value="INSAVALOR">INSAVALOR</option><option value="LAPP Annecy">LAPP Annecy</option><option value="LEM (CH)">LEM (CH)</option><option value="LEM TECH FR">LEM TECH FR</option><option value="LEM TECH BULGARIE">LEM TECH BULGARIE</option><option value="LOCATIS">LOCATIS ★</option><option value="MERIO">MERIO</option><option value="MICRO BEAM">MICRO BEAM</option><option value="MINISTERE DES ARMEES">MINISTERE DES ARMEES</option><option value="PFEIFFER">PFEIFFER</option><option value="Proto Process">Proto Process</option><option value="RTSYS">RTSYS</option><option value="SEFRAM">SEFRAM ★</option><option value="SICPA">SICPA</option><option value="SYNOPSIS">SYNOPSIS</option><option value="VIAVI">VIAVI ★</option></select>
+  </div>
+
+  <!-- Fichier BOM Luminovo -->
+  <div class="card">
+    <div class="card-label">Fichier 1</div>
+    <h2>BOM Luminovo</h2>
+    <p>Export Luminovo (.xlsx) avec colonnes : Designator, IPN, MPN, Package, Mounting</p>
+    <div class="drop-zone loaded" id="drop-lumi" ondragover="handleDragOver(event,&#39;drop-lumi&#39;)" ondragleave="handleDragLeave(&#39;drop-lumi&#39;)" ondrop="handleDrop(event,&#39;lumi&#39;)">
+      <input type="file" accept=".xlsx,.xls,.ods,.csv" onchange="handleFileSelect(event,&#39;lumi&#39;)">
+      <span class="drop-icon">📋</span>
+      <div class="drop-hint"><strong>Glisser-déposer</strong> ou cliquer pour sélectionner</div>
+      <div class="drop-hint" style="margin-top:4px">Formats acceptés : .xlsx, .ods, .csv</div>
+      <div class="filename" id="name-lumi">BOM_codifiee-MERIO_2026-06-11 (1).xlsx</div>
+    </div>
+    <div class="stats-row" id="stats-lumi">
+      <div class="stat"><div class="stat-val" id="lumi-refs">81</div><div class="stat-lbl">Références</div></div>
+      <div class="stat"><div class="stat-val" id="lumi-desig">254</div><div class="stat-lbl">Désignateurs</div></div>
+    </div>
+  </div>
+
+  <!-- Fichier Centroïdes -->
+  <div class="card">
+    <div class="card-label">Fichier 2</div>
+    <h2>Centroïdes (CMP)</h2>
+    <p>Fichier de placement MYCenter (.csv) avec : Repère, X, Y, Rotation, Face, IPN</p>
+    <div class="drop-zone loaded" id="drop-cmp" ondragover="handleDragOver(event,&#39;drop-cmp&#39;)" ondragleave="handleDragLeave(&#39;drop-cmp&#39;)" ondrop="handleDrop(event,&#39;cmp&#39;)">
+      <input type="file" accept=".csv,.txt,.asc" onchange="handleFileSelect(event,&#39;cmp&#39;)">
+      <span class="drop-icon">📍</span>
+      <div class="drop-hint"><strong>Glisser-déposer</strong> ou cliquer pour sélectionner</div>
+      <div class="drop-hint" style="margin-top:4px">Format : .csv (séparateur tabulation)</div>
+      <div class="filename" id="name-cmp">Pick___Place_2738-03__2738_V01_.csv</div>
+    </div>
+    <div class="stats-row" id="stats-cmp">
+      <div class="stat"><div class="stat-val" id="cmp-total">45</div><div class="stat-lbl">Composants</div></div>
+      <div class="stat"><div class="stat-val" id="cmp-smt">45</div><div class="stat-lbl">SMT (TOP+BOT)</div></div>
+    </div>
+  </div>
+
+  <!-- Options -->
+  <div class="card options-card">
+    <div class="option-group" style="flex:1.2">
+      <div class="card-label" style="margin-bottom:12px">Options de filtrage</div>
+      <label><input type="checkbox" id="opt-nc" checked=""> Exclure les NC / No Connect</label>
+      <div class="option-desc">Composants avec IPN = "NC" ou repère MIRE*</div>
+      <label><input type="checkbox" id="opt-thru"> Exclure les composants traversants (THT)</label>
+      <div class="option-desc">Mounting = "THT" dans la BOM Luminovo</div>
+      <label><input type="checkbox" id="opt-dnp"> Exclure les DNP (Do Not Place)</label>
+      <div class="option-desc">Si colonne DNP/NM présente dans la BOM</div>
+    </div>
+    <div class="option-group" style="flex:1">
+      <div class="card-label" style="margin-bottom:12px">Sorties générées</div>
+      <label><input type="checkbox" id="out-pnp" checked=""> Feuille PnP</label>
+      <div class="option-desc">REF | IPN | PACKAGE | X | Y | Rot | Side</div>
+      <label><input type="checkbox" id="out-cli" checked=""> Feuille PnP CLI (import MYCenter)</label>
+      <div class="option-desc">REF | IPN | PACKAGE | X | Y | Rot | Side — sans entête</div>
+      <label><input type="checkbox" id="out-bom" checked=""> Feuille BOM PP</label>
+      <div class="option-desc">Designator | IPN | Package | MPN | Face | MAG</div>
+    </div>
+  </div>
+
+
+    <!-- Run -->
+  <div class="run-section">
+    <button class="btn-run" id="btn-run" onclick="runProcess()">
+      <i class="ti ti-player-play" aria-hidden="true"></i> Générer les fichiers
+    </button>
+    <div style="font-size:12px; color:var(--text3)" id="run-hint">Les 2 fichiers sont chargés — prêt à générer</div>
+  </div>
+
+  <!-- Résultats -->
+  <div class="card results-card" id="results">
+    <div class="card-label">Résultats</div>
+    <h2 style="margin-bottom:16px">Traitement terminé</h2>
+
+    <div class="results-grid">
+      <div class="result-stat"><div class="val ok" id="res-matched">39</div><div class="lbl">Composants matchés</div></div>
+      <div class="result-stat"><div class="val warn" id="res-unmatched">6</div><div class="lbl">Non matchés (sans IPN)</div></div>
+      <div class="result-stat"><div class="val" id="res-filtered" style="color:var(--text3)">0</div><div class="lbl">Exclus (NC / THT)</div></div>
+      <div class="result-stat"><div class="val ok" id="res-pnp">45</div><div class="lbl">Lignes PnP CLI</div></div>
+    </div>
+
+    <div class="section-title">Télécharger</div>
+    <div class="download-row">
+      <button class="btn-dl" id="btn-dl-xlsx" onclick="downloadXLSX()"><i class="ti ti-download" aria-hidden="true"></i> BOM_PP_[projet].xlsx</button>
+      <button class="btn-dl secondary" id="btn-dl-csv" onclick="downloadCSV()"><i class="ti ti-download" aria-hidden="true"></i> PnP_CLI_[projet].csv</button>
+    </div>
+
+    <div id="unmatched-section" class="">
+      <div class="section-title">Composants sans correspondance BOM</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Ces repères sont présents dans les centroïdes mais absents du Luminovo (composants THT, fiduciaux, ou manquants dans le sourcing).</div>
+      <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:6px">
+        <table class="unmatched-table">
+          <thead><tr><th>Repère</th><th>IPN CMP</th><th>Face</th></tr></thead>
+          <tbody id="unmatched-tbody"><tr><td>C5</td><td>—</td><td>TOP</td></tr><tr><td>C3</td><td>—</td><td>TOP</td></tr><tr><td>FID1</td><td>—</td><td>TOP</td></tr><tr><td>FID2</td><td>—</td><td>TOP</td></tr><tr><td>FID3</td><td>—</td><td>TOP</td></tr><tr><td>J1</td><td>—</td><td>TOP</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="log" id="log"><div class="log-line"><span class="log-time">08:34:17</span><span class="log-ok">Chargement : 45 composants centroïdes</span></div><div class="log-line"><span class="log-time">08:34:17</span><span class="log-ok">BOM Luminovo : 39 désignateurs</span></div><div class="log-line"><span class="log-time">08:34:17</span><span class="log-warn">Jointure : 39 matchés, 6 sans correspondance BOM</span></div><div class="log-line"><span class="log-time">08:34:17</span><span class="log-info">Exclus : 0 composants (NC/fiduciaux/THT)</span></div><div class="log-line"><span class="log-time">08:34:17</span><span class="log-ok">PnP CLI : 45 lignes générées</span></div><div class="log-line"><span class="log-time">08:34:17</span><span class="log-ok">BOM PP : 19 références uniques</span></div></div>
+  </div>
+
+</main>
+
+<script>
+/* ---------- version ---------- */
+// Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
+const APP_VERSION = "1.0";
+const APP_DATE = "25/07/2026";
+document.title = `MYCenter Prep — Automatisation BOM + PnP — v${APP_VERSION} — ${APP_DATE}`;
+document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
+
+// ─── State ───────────────────────────────────────────────────────────────────
+const state = { lumi: null, cmp: null, result: null, projectName: 'projet' };
+
+// ─── File Handling ────────────────────────────────────────────────────────────
+function handleDragOver(e, id) { e.preventDefault(); document.getElementById(id).classList.add('dragover'); }
+function handleDragLeave(id) { document.getElementById(id).classList.remove('dragover'); }
+
+function handleDrop(e, type) {
+  e.preventDefault();
+  handleDragLeave('drop-'+type);
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file, type);
+}
+
+function handleFileSelect(e, type) {
+  const file = e.target.files[0];
+  if (file) processFile(file, type);
+}
+
+function processFile(file, type) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    if (type === 'lumi') parseLumi(e.target.result, file.name);
+    else parseCMP(e.target.result, file.name);
+  };
+  if (file.name.endsWith('.csv') || file.name.endsWith('.txt')) reader.readAsText(file);
+  else reader.readAsArrayBuffer(e => {});
+
+  // Use arrayBuffer for xlsx/ods, text for csv
+  if (file.name.match(/\.(xlsx|xls|ods)$/i)) {
+    const r2 = new FileReader();
+    r2.onload = (ev) => {
+      if (type === 'lumi') parseLumi(ev.target.result, file.name);
+    };
+    r2.readAsArrayBuffer(file);
+  } else {
+    const r3 = new FileReader();
+    r3.onload = (ev) => {
+      if (type === 'cmp') parseCMP(ev.target.result, file.name);
+    };
+    r3.readAsText(file);
+  }
+}
+
+// Fix: unified file reader
+function handleFileSelect(e, type) { loadFile(e.target.files[0], type); }
+function handleDrop(e, type) {
+  e.preventDefault(); handleDragLeave('drop-'+type);
+  loadFile(e.dataTransfer.files[0], type);
+}
+
+function loadFile(file, type) {
+  if (!file) return;
+  // Fichiers binaires (Excel, ODS) -> ArrayBuffer
+  if (file.name.match(/\.(xlsx|xls|ods)$/i)) {
+    const r = new FileReader();
+    r.onload = (ev) => {
+      if (type === 'lumi') parseLumi(ev.target.result, file.name);
+      else parseCMP(ev.target.result, file.name);
+    };
+    r.readAsArrayBuffer(file);
+    return;
+  }
+  // Fichiers texte -> UTF-8 d'abord, fallback latin-1/cp1252
+  const r1 = new FileReader();
+  r1.onload = (ev) => {
+    const text = ev.target.result;
+    if (text.includes('\uFFFD')) {
+      // Mauvais encodage UTF-8 -> retenter en latin-1
+      const r2 = new FileReader();
+      r2.onload = (ev2) => {
+        if (type === 'lumi') parseLumi(ev2.target.result, file.name);
+        else parseCMP(ev2.target.result, file.name);
+      };
+      r2.readAsText(file, 'latin-1');
+    } else {
+      if (type === 'lumi') parseLumi(text, file.name);
+      else parseCMP(text, file.name);
+    }
+  };
+  r1.readAsText(file, 'utf-8');
+}
+
+
+// ─── Parse BOM Luminovo ───────────────────────────────────────────────────────
+function parseLumi(data, filename) {
+  try {
+    const isText = typeof data === 'string';
+    let rows = [];
+    let sheetUsed = '';
+
+    if (isText) {
+      // ── CSV / TSV texte ──────────────────────────────────────────────────
+      const lines = data.split(/\r?\n/).filter(l => l.trim());
+      const sep = (lines[0].match(/\t/g)||[]).length >= 3 ? '\t'
+               : (lines[0].match(/;/g) ||[]).length >= 3 ? ';' : ',';
+
+      // Trouver la ligne d'en-tête (contient "designator" ou "ref" ou "mpn")
+      let hIdx = 0;
+      for (let i = 0; i < Math.min(10, lines.length); i++) {
+        const low = lines[i].toLowerCase();
+        if (low.includes('designator') || low.includes('ref') || low.includes('mpn') || low.includes('ipn')) {
+          hIdx = i; break;
+        }
+      }
+      const header = lines[hIdx].split(sep).map(c => c.trim().replace(/"/g,'').toLowerCase());
+      for (let i = hIdx + 1; i < lines.length; i++) {
+        const cols = lines[i].split(sep).map(c => c.trim().replace(/"/g,''));
+        if (cols.every(c => !c)) continue;
+        const obj = {};
+        header.forEach((h, ci) => { obj[h] = cols[ci] || ''; });
+        rows.push(obj);
+      }
+      sheetUsed = filename;
+
+    } else {
+      // ── Excel / ODS binaire ──────────────────────────────────────────────
+      const wb = XLSX.read(data, { type: 'array' });
+
+      // Trouver la meilleure feuille
+      function scoreSheet(name) {
+        if (/bom.?lumi/i.test(name)) return 100;
+        const ws = wb.Sheets[name];
+        const preview = XLSX.utils.sheet_to_json(ws, { defval: '', range: 0, header: 1 });
+        if (!preview.length) return 0;
+        const flat = preview.slice(0, 5).flat().join(' ').toLowerCase();
+        let score = 0;
+        if (flat.includes('designator'))  score += 30;
+        if (flat.includes('internal part')) score += 20;
+        if (flat.includes('mpn'))          score += 10;
+        if (flat.includes('package'))      score += 5;
+        return score;
+      }
+
+      const best = wb.SheetNames.reduce((a, n) => scoreSheet(n) > scoreSheet(a) ? n : a, wb.SheetNames[0]);
+      sheetUsed = best;
+      const ws = wb.Sheets[best];
+
+      // Lire brut pour trouver la ligne d'en-tête (peut être décalée)
+      const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      let hRow = 0;
+      for (let i = 0; i < Math.min(10, raw.length); i++) {
+        const flat = raw[i].join(' ').toLowerCase();
+        if (flat.includes('designator') || flat.includes('ref') || (flat.includes('mpn') && flat.includes('package'))) {
+          hRow = i; break;
+        }
+      }
+      rows = XLSX.utils.sheet_to_json(ws, { defval: '', range: hRow });
+    }
+
+    if (!rows.length) throw new Error('Aucune donnée trouvée dans le fichier');
+
+    // ── Détection universelle des colonnes ───────────────────────────────────
+    const keys = Object.keys(rows[0]);
+    function findCol(...patterns) {
+      return keys.find(k => {
+        const kl = k.toLowerCase().replace(/[^a-z0-9 ]/g,' ');
+        return patterns.some(p => typeof p === 'string' ? kl.includes(p) : p.test(kl));
+      }) || '';
+    }
+
+    const colDesig = findCol('designator','designateur','ref des','refdes');
+    const colIPN   = findCol('approved internal part','internal part number','internal part',/\bipn\b/);
+    const colMPN   = findCol('mpn','manufacturer part number','mfr part',/\bmpn\b/);
+    const colPkg   = findCol('package','boitier','footprint','case');
+    const colMount = findCol('mounting','montage','mount type','assembly type');
+
+    console.log('Feuille:', sheetUsed, '| Desig:', colDesig, '| IPN:', colIPN, '| MPN:', colMPN, '| Pkg:', colPkg, '| Mount:', colMount);
+    console.log('Colonnes dispo:', keys);
+
+    if (!colDesig) throw new Error(
+      'Colonne Designator introuvable.\nColonnes disponibles : ' + keys.join(', ')
+    );
+
+    const bomMap = {};
+    let totalDesig = 0;
+
+    rows.forEach(row => {
+      const desigRaw = String(row[colDesig] || '');
+      const rawIPN   = String(row[colIPN]   || '').replace(/[\r\n]+/g,' ').trim();
+      const mpn      = String(row[colMPN]   || '').replace(/[\r\n]+/g,' ').trim();
+      const pkg      = String(row[colPkg]   || '').replace(/[\r\n]+/g,' ').trim();
+      const mount    = String(row[colMount] || '').replace(/[\r\n]+/g,' ').trim();
+      const ipn      = rawIPN || mpn;  // IPN prioritaire, MPN en fallback
+
+      desigRaw.split(',').map(d => d.trim()).filter(Boolean).forEach(d => {
+        bomMap[d] = { ipn, mpn, pkg, mount };
+        totalDesig++;
+      });
+    });
+
+    state.lumi = { bomMap, totalRefs: rows.length, totalDesig };
+    state.projectName = filename
+      .replace(/\.[^.]+$/, '')
+      .replace(/Luminovo[-_]Sourcing[-_]/i, '')
+      .replace(/[-_]\d{4}-\d{2}-\d{2}.*/,'')
+      || 'projet';
+
+    // Détecter le client depuis le nom du fichier
+    const detectedClient = detectClient(filename, '');
+    if (detectedClient) {
+      state.matchedClient = detectedClient;
+      showClientBadge(detectedClient);
+    }
+
+    document.getElementById('drop-lumi').classList.add('loaded');
+    document.getElementById('name-lumi').textContent  = filename;
+    document.getElementById('name-lumi').classList.remove('hidden');
+    document.getElementById('stats-lumi').classList.remove('hidden');
+    document.getElementById('lumi-refs').textContent  = rows.length;
+    document.getElementById('lumi-desig').textContent = totalDesig;
+
+    checkReady();
+  } catch(err) {
+    alert('Erreur lecture BOM Luminovo : ' + err.message);
+  }
+}
+
+
+function parseCMP(text, filename) {
+  try {
+    const lines = text.split(/\r?\n/);
+
+    // ── normFace : toute valeur -> TOP / BOT ─────────────────────────────────
+    function normFace(v) {
+      const s = (v||'').trim().toUpperCase().replace(/[\s_\-\.\"]/g,'');
+      if (!s) return '';
+      if (s.startsWith('TOP') || s==='T' || s==='F' || s==='FRONT'
+          || s==='FCU' || s==='COMP' || s==='COMPONENT'
+          || s==='NO'  || s==='FALSE' || s==='0'
+          || s==='LAYER1' || s==='L1') return 'TOP';
+      if (s.startsWith('BOT') || s.startsWith('BOTT')
+          || s==='B' || s==='BACK' || s==='R'
+          || s==='BCU' || s==='SOLDER'
+          || s==='YES' || s==='TRUE' || s==='1'
+          || s==='LAYER2' || s==='L2') return 'BOT';
+      if (s.includes('TOP')) return 'TOP';
+      if (s.includes('BOT') || s.includes('BOTTOM')) return 'BOT';
+      return '';
+    }
+
+    // ── resolveFace : colonne directe ou champ mirror ─────────────────────────
+    function resolveFace(raw, isMirror) {
+      if (!isMirror) return normFace(raw) || '';
+      const s = (raw||'').trim().toUpperCase().replace(/[\s_\-\.\"]/g,'');
+      if (s.startsWith('BOT')||s==='YES'||s==='1'||s==='TRUE'||s==='B') return 'BOT';
+      return 'TOP';
+    }
+
+    // ── Détecter séparateur ───────────────────────────────────────────────────
+    function detectSep(line) {
+      const clean = line.replace(/"[^"]*"/g,'');
+      const t = (clean.match(/\t/g)||[]).length;
+      const c = (clean.match(/,/g) ||[]).length;
+      const s = (clean.match(/;/g) ||[]).length;
+      if (t===0&&c===0&&s===0&&/\s{2,}/.test(clean)) return 'spaces';
+      return t>=c&&t>=s ? '\t' : s>c ? ';' : ',';
+    }
+
+    // ── Splitter en tenant compte des guillemets ──────────────────────────────
+    function splitLine(line, sep) {
+      if (sep==='spaces') return line.trim().split(/\s{2,}/).map(c=>c.trim()).filter(c=>c!=='');
+      const result=[]; let cur='', inQ=false;
+      for (let i=0; i<line.length; i++) {
+        const c=line[i];
+        if (c==='"'){inQ=!inQ;continue;}
+        if (c===sep&&!inQ){result.push(cur.trim());cur='';continue;}
+        cur+=c;
+      }
+      result.push(cur.trim());
+      return result;
+    }
+
+    // ── Ligne ressemble à des données ? ──────────────────────────────────────
+    function looksLikeData(cols) {
+      // Accepte refdes classiques (C1, R10) ET atypiques (VR5, OUT-, IN+, J1rec)
+      const hasRef = cols.some(c => /^[A-Z]/i.test(c) && c.length >= 2 && !/^(true|false|top|bottom|toplayer|bottomlayer)$/i.test(c));
+      // Accepte virgule décimale (9,5), point (9.5), et nombres avec unités (9.5mm, 100mil)
+      const hasNum = cols.filter(c => /^-?\d+([.,]\d+)?(mm|mil|thou|in)?$/i.test(c)).length >= 2;
+      return hasRef && hasNum;
+    }
+
+    let rows = [];
+
+    // ════════════════════════════════════════════════════════════════════════
+    // STRATÉGIE 0 : Format défini dans la base clients (GSheet)
+    // ════════════════════════════════════════════════════════════════════════
+    // Client détecté uniquement depuis la BOM Luminovo (pas depuis le CMP)
+    // Un client peut avoir PLUSIEURS formats définis (plusieurs lignes GSheet) :
+    // on les essaie tous et on garde le premier qui produit des résultats.
+    const clientFormats = state.matchedClient ? getClientCMPFormats(state.matchedClient.nom) : [];
+    let strategyZeroRows = [];
+
+    for (const clientFormat of clientFormats) {
+      if (!clientFormat.colRef) continue;
+      const tryRows = [];
+
+      // Appliquer le format défini explicitement dans la GSheet
+      const dbSep = clientFormat.sep.toUpperCase() === 'TAB' ? '\t'
+                  : clientFormat.sep === 'virgule' ? ','
+                  : clientFormat.sep === 'point-virgule' ? ';'
+                  : detectSep(lines[0]);
+
+      // Résoudre une colonne : soit un index numérique, soit un nom de colonne
+      function resolveCol(spec, headerCols) {
+        if (!spec) return -1;
+        const n = parseInt(spec);
+        if (!isNaN(n)) return n;
+        return headerCols.findIndex(h => h.toLowerCase().includes(spec.toLowerCase()));
+      }
+
+      const isNamed = isNaN(parseInt(clientFormat.colRef));
+      let headerCols = [];
+      let dataStart = 0;
+
+      if (isNamed) {
+        // Chercher la ligne d'en-tête : contient col_ref comme nom de colonne
+        for (let i = 0; i < Math.min(20, lines.length); i++) {
+          const cols = splitLine(lines[i], dbSep);
+          if (cols.some(c => c.trim().replace(/"/g,'').toLowerCase() === clientFormat.colRef.toLowerCase())) {
+            headerCols = cols.map(c => c.trim().replace(/"/g,''));
+            dataStart = i + 1;
+            break;
+          }
+        }
+        // Si pas trouvé, chercher après le detect_mot_cle
+        if (!headerCols.length && clientFormat.detect) {
+          const detectIdx = lines.findIndex(l => l.includes(clientFormat.detect));
+          if (detectIdx >= 0) {
+            const dashIdx = lines.findIndex((l,i) => i > detectIdx && l.trim().startsWith('---'));
+            dataStart = dashIdx >= 0 ? dashIdx + 1 : detectIdx + 1;
+          }
+        }
+      } else {
+        // Colonnes numériques : trouver le début des données après detect_mot_cle
+        if (clientFormat.detect) {
+          const detectIdx = lines.findIndex(l => l.includes(clientFormat.detect));
+          if (detectIdx >= 0) {
+            const dashIdx = lines.findIndex((l,i) => i > detectIdx && l.trim().startsWith('---'));
+            dataStart = dashIdx >= 0 ? dashIdx + 1 : detectIdx + 1;
+          }
+        }
+      }
+
+      const cRef  = resolveCol(clientFormat.colRef,  headerCols);
+      const cX    = resolveCol(clientFormat.colX,    headerCols);
+      const cY    = resolveCol(clientFormat.colY,    headerCols);
+      const cRot  = resolveCol(clientFormat.colRot,  headerCols);
+      const cFace = resolveCol(clientFormat.colFace, headerCols);
+
+      // Normaliser un nombre : gère virgule décimale (format français)
+      function parseNum(v) { return parseFloat((v||'').replace(',','.').replace(/[a-zA-Z]+$/,'')) || 0; }
+
+      for (let i=dataStart; i<lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const cols = splitLine(lines[i], dbSep);
+        const ref  = cRef>=0 ? cols[cRef] : '';
+        if (!ref || !looksLikeData(cols)) continue;
+        tryRows.push({
+          ref,
+          x:    cX>=0    ? parseNum(cols[cX])           : 0,
+          y:    cY>=0    ? parseNum(cols[cY])            : 0,
+          rot:  cRot>=0  ? (parseInt(cols[cRot])   ||0) : 0,
+          face: cFace>=0 ? (normFace(cols[cFace]) || resolveFace(cols[cFace], false)) : '',
+          ipn:  ''
+        });
+      }
+
+      if (tryRows.length > strategyZeroRows.length) {
+        strategyZeroRows = tryRows;
+      }
+      // Si ce format a déjà donné de bons résultats, pas besoin de tester les suivants
+      if (tryRows.length > 0) break;
+    }
+
+    rows = strategyZeroRows;
+
+    if (clientFormats.length > 0) {
+      // Si aucun format n'a donné de résultats → fallback détection automatique
+      if (rows.length === 0) {
+        console.warn('Stratégie 0 : 0 lignes pour', state.matchedClient?.nom, '— fallback détection auto (tous formats testés)');
+      } else {
+        const smtCount = rows.filter(r => r.face==='TOP'||r.face==='BOT').length;
+        state.cmp = { rows, total: rows.length, smt: smtCount };
+        document.getElementById('drop-cmp').classList.add('loaded');
+        document.getElementById('name-cmp').textContent  = filename;
+        document.getElementById('name-cmp').classList.remove('hidden');
+        document.getElementById('stats-cmp').classList.remove('hidden');
+        document.getElementById('cmp-total').textContent = rows.length;
+        document.getElementById('cmp-smt').textContent   = smtCount;
+        checkReady();
+        return;
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // STRATÉGIE 1 : Format MYCenter natif
+    // Reconnu par : "Component" + "List" dans les 5 premières lignes
+    // Structure fixe : TAB | REF(1) | X(2) | Y(3) | ROT(4) | FACE(5) | IPN(6)
+    // La colonne FACE n'a pas toujours un nom dans l'en-tête
+    // ════════════════════════════════════════════════════════════════════════
+    const isMYCenter = lines.slice(0,5).some(l =>
+      l.includes('Component') && (l.includes('List') || l.includes('Report'))
+    );
+
+    if (isMYCenter) {
+      const dashIdx = lines.findIndex(l => l.trim().startsWith('---'));
+      const dataStart = dashIdx >= 0 ? dashIdx+1 : 10;
+      for (let i=dataStart; i<lines.length; i++) {
+        const cols = lines[i].split('\t');
+        const ref  = (cols[1]||'').trim();
+        if (!ref || ref.startsWith('---') || ref==='') continue;
+        rows.push({
+          ref,
+          x:    parseFloat(cols[2])||0,
+          y:    parseFloat(cols[3])||0,
+          rot:  parseInt(cols[4]) ||0,
+          face: normFace(cols[5]),
+          ipn:  (cols[6]||'').trim()
+        });
+      }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // STRATÉGIE 2 : Tout autre format — détection automatique universelle
+    // ════════════════════════════════════════════════════════════════════════
+    } else {
+      const HDR = /refdes|reference|designator|component|center.x|pos.x|mid.x|symbol.x|center-x|rotation|layer|side|face/i;
+
+      // Détecter format largeur fixe : extraire colonnes par positions dans l'en-tête
+      function parseFixedWidth(headerLine, dataLine) {
+        const colPos = [];
+        const re = /\S+/g; let m;
+        while ((m = re.exec(headerLine)) !== null) colPos.push(m.index);
+        // Extraire chaque colonne selon sa position
+        const cols = [];
+        for (let i=0; i<colPos.length; i++) {
+          const start = colPos[i];
+          const end   = i+1 < colPos.length ? colPos[i+1] : dataLine.length;
+          cols.push(dataLine.substring(start, end).trim());
+        }
+        return cols;
+      }
+
+      function isFixedWidth(headerLine, sep) {
+        // Largeur fixe si le header splitté donne moins de 5 colonnes
+        // mais contient plus de 5 mots-clés
+        const splitCols = splitLine(headerLine, sep).length;
+        const wordCount  = (headerLine.match(/\S+/g)||[]).length;
+        return splitCols < 5 && wordCount >= 5;
+      }
+
+      // Trouver l'en-tête : ligne qui matche HDR ET suivie de données
+      let headerIdx=-1, sep=',';
+
+      // Cas Proteus : ligne "Fields: Part ID Value Package Layer Rotation X Y"
+      // Note : "Part" et "ID" sont deux tokens pour une seule colonne refdes dans les données
+      // -> supprimer "ID" de l'en-tête pour aligner avec les données réelles
+      const proteusFieldsIdx = lines.findIndex(l => /^fields\s*:/i.test(l.trim()));
+      if (proteusFieldsIdx >= 0) {
+        let proteusLine = lines[proteusFieldsIdx].replace(/^fields\s*:\s*/i, '');
+        // Supprimer le token 'ID' isolé qui suit 'Part' (colonne fantôme Proteus)
+        proteusLine = proteusLine.replace(/Part[\t,;]+ID\b/i, 'Part');
+        lines[proteusFieldsIdx] = proteusLine;
+        headerIdx = proteusFieldsIdx;
+        sep = detectSep(proteusLine);
+      }
+
+      if (headerIdx < 0) {
+        for (let i=0; i<Math.min(40,lines.length); i++) {
+          const line=lines[i].trim();
+          if (!line || /^[=\-]{4,}/.test(line)) continue;
+          if (!HDR.test(line)) continue;
+          const s=detectSep(lines[i]);
+          if (splitLine(lines[i],s).length < 3) continue;
+          for (let j=i+1; j<Math.min(i+8,lines.length); j++) {
+            if (!lines[j].trim()) continue;
+            if (looksLikeData(splitLine(lines[j],s))) {
+              headerIdx=i; sep=s; break;
+            }
+          }
+          if (headerIdx>=0) break;
+        }
+      }
+
+      if (headerIdx < 0) {
+        // Dernier recours : chercher la première ligne qui ressemble à des données
+        // et prendre la ligne précédente comme en-tête
+        for (let i=1; i<Math.min(50,lines.length); i++) {
+          const s=detectSep(lines[i]);
+          if (looksLikeData(splitLine(lines[i],s))) {
+            headerIdx=i-1; sep=s; break;
+          }
+        }
+      }
+
+      // Dernier recours : pas d'en-tête du tout — données dès la ligne 0
+      // Deviner les colonnes entièrement par analyse du contenu
+      if (headerIdx < 0) {
+        const samples = [];
+        for (let i=0; i<Math.min(20,lines.length); i++) {
+          const c = splitLine(lines[i], detectSep(lines[i]));
+          if (looksLikeData(c)) { samples.push({cols:c, sep:detectSep(lines[i])}); }
+          if (samples.length >= 8) break;
+        }
+        if (!samples.length) throw new Error('Format non reconnu — aucune donnée valide trouvée');
+
+        sep = samples[0].sep;
+        const n = samples[0].cols.length;
+
+        // Analyser chaque colonne par son contenu
+        const refScore  = Array(n).fill(0);
+        const faceScore = Array(n).fill(0);
+        const rotScore  = Array(n).fill(0);
+        const numScore  = Array(n).fill(0); // coords décimales ou entières larges
+
+        samples.forEach(({cols}) => {
+          cols.forEach((v,ci) => {
+            if (/^[A-Z]{1,4}\d+$/i.test(v))                          refScore[ci]++;
+            if (/^(TOP|BOT|BOTTOM|TOPLAYER|BOTTOMLAYER)$/i.test(v))  faceScore[ci]++;
+            if (/^-?(0|90|180|270|45|135|225|315)$/.test(v))         rotScore[ci]++;
+            if (/^-?\d{3,}(\.\d+)?$/.test(v))                        numScore[ci]++; // grands entiers = coords en thou
+            if (/^-?\d+\.\d+$/.test(v))                               numScore[ci]++; // décimales = coords en mm
+          });
+        });
+
+        // Sélectionner les colonnes
+        const bestRef  = refScore.indexOf(Math.max(...refScore));
+        const bestFace = faceScore.indexOf(Math.max(...faceScore));
+        const bestRot  = rotScore.indexOf(Math.max(...rotScore));
+        // X et Y : les deux meilleures colonnes numériques hors ref/face/rot
+        const used = new Set([bestRef, bestFace, bestRot]);
+        const xyCands = numScore
+          .map((s,i)=>({i,s}))
+          .filter(x=>!used.has(x.i) && x.s>0)
+          .sort((a,b)=>b.s-a.s);
+        const bestX = xyCands[0]?.i ?? -1;
+        const bestY = xyCands[1]?.i ?? -1;
+
+        for (let i=0; i<lines.length; i++) {
+          if (!lines[i].trim()) continue;
+          const cols = splitLine(lines[i], sep);
+          if (!looksLikeData(cols)) continue;
+          const ref = bestRef>=0 ? cols[bestRef] : '';
+          if (!ref) continue;
+          rows.push({
+            ref,
+            x:    bestX>=0 ? (parseFloat(cols[bestX])||0) : 0,
+            y:    bestY>=0 ? (parseFloat(cols[bestY])||0) : 0,
+            rot:  bestRot>=0 ? (parseInt(cols[bestRot])||0) : 0,
+            face: bestFace>=0 ? normFace(cols[bestFace]) : '',
+            ipn:  ''
+          });
+        }
+
+        const smtCount = rows.filter(r => r.face==='TOP'||r.face==='BOT').length;
+        state.cmp = { rows, total: rows.length, smt: smtCount };
+        document.getElementById('drop-cmp').classList.add('loaded');
+        document.getElementById('name-cmp').textContent  = filename;
+        document.getElementById('name-cmp').classList.remove('hidden');
+        document.getElementById('stats-cmp').classList.remove('hidden');
+        document.getElementById('cmp-total').textContent = rows.length;
+        document.getElementById('cmp-smt').textContent   = smtCount;
+        checkReady();
+        return;
+      }
+
+      const fixedWidth = isFixedWidth(lines[headerIdx], sep);
+      const header = fixedWidth
+        ? (lines[headerIdx].match(/\S+/g)||[]).map(c => c.toLowerCase().replace(/[^a-z0-9]/g,' ').trim())
+        : splitLine(lines[headerIdx], sep).map(c => c.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
+
+      function findCol(...pats) {
+        return header.findIndex(h => pats.some(p => {
+          if (p instanceof RegExp) return p.test(h);
+          // Correspondance exacte OU la colonne contient le pattern comme mot entier
+          return h === p || h.startsWith(p+' ') || h.endsWith(' '+p) || h.includes(' '+p+' ') || h === p;
+        }));
+      }
+
+      const iRef  = findCol('refdes','reference','designator','component','ref','repere','repère',/^part$/,/^id$/);
+      const iX    = findCol('center x','center-x','mid x','mid-x','pos x','pos-x','posx','symbol x','symbol-x',/^x$/);
+      const iY    = findCol('center y','center-y','mid y','mid-y','pos y','pos-y','posy','symbol y','symbol-y',/^y$/);
+      const iRot  = findCol('rotation','rotate','angle','rot','orientation');
+      const iFace = findCol('layer','side','face','tb','top bot','board side','pcb side');
+      const iFaceFb = iFace<0
+        ? header.findIndex(h => h.includes('mirror')||h.includes('flip')||h.includes('botirror'))
+        : -1;
+      const iFaceEff = iFace>=0 ? iFace : iFaceFb;
+      const mirrorColName = iFaceEff>=0 ? header[iFaceEff] : '';
+      const isMirror = iFace<0 && iFaceFb>=0 &&
+        (mirrorColName.includes('mirror')||mirrorColName.includes('flip')||mirrorColName.includes('botirror'));
+
+      // Guess X/Y/Face par contenu si pas trouvés par nom
+      function guessByContent() {
+        const samples=[];
+        for (let i=headerIdx+1; i<Math.min(headerIdx+20,lines.length); i++) {
+          const c=splitLine(lines[i],sep);
+          if (looksLikeData(c)) { samples.push(c); if(samples.length>=10) break; }
+        }
+        if (!samples.length) return {};
+        const n=header.length;
+        // Score chaque colonne
+        const decScore  = Array(n).fill(0); // coordonnées décimales
+        const faceScore = Array(n).fill(0); // valeurs TOP/BOT
+        const rotScore  = Array(n).fill(0); // valeurs 0/90/180/270
+        samples.forEach(r => {
+          r.forEach((v,ci) => {
+            if (/^-?\d+\.\d+$/.test(v)) decScore[ci]++;
+            if (/^(TOP|BOT|BOTTOM|TOPLAYER|BOTTOMLAYER)$/i.test(v)) faceScore[ci]++;
+            if (/^(0|90|180|270|-90|-180|-270)$/.test(v)) rotScore[ci]++;
+          });
+        });
+        // Exclure colonnes déjà assignées
+        const used = new Set([iRef,iFaceEff,iRot].filter(x=>x>=0));
+        const xyCands = decScore.map((s,i)=>({i,s}))
+          .filter(x=>!used.has(x.i)&&x.s>0).sort((a,b)=>b.s-a.s);
+        const faceCand = faceScore.map((s,i)=>({i,s}))
+          .filter(x=>!used.has(x.i)&&x.s>0).sort((a,b)=>b.s-a.s);
+        return {
+          gx: iX<0 ? (xyCands[0]?.i??-1) : iX,
+          gy: iY<0 ? (xyCands[1]?.i??-1) : iY,
+          gf: iFaceEff<0 ? (faceCand[0]?.i??-1) : iFaceEff,
+        };
+      }
+
+      const { gx, gy, gf } = guessByContent();
+      const effX    = iX>=0    ? iX    : gx;
+      const effY    = iY>=0    ? iY    : gy;
+      const effFace = iFaceEff>=0 ? iFaceEff : gf;
+
+      for (let i=headerIdx+1; i<lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const cols = fixedWidth ? parseFixedWidth(lines[headerIdx], lines[i]) : splitLine(lines[i],sep);
+        if (!looksLikeData(cols)) continue;
+        const ref=iRef>=0?cols[iRef]:'';
+        if (!ref) continue;
+        function stripUnit(v) { return parseFloat((v||'').replace(',','.').replace(/[a-zA-Z]+$/,''))||0; }
+        rows.push({
+          ref,
+          x:    effX>=0 ? stripUnit(cols[effX]) : 0,
+          y:    effY>=0 ? stripUnit(cols[effY]) : 0,
+          rot:  iRot>=0 ? (parseInt(cols[iRot]) ||0) : 0,
+          face: resolveFace(effFace>=0 ? cols[effFace] : '', isMirror),
+          ipn:  ''
+        });
+      }
+    }
+
+    const smtCount = rows.filter(r => r.face==='TOP'||r.face==='BOT').length;
+    state.cmp = { rows, total: rows.length, smt: smtCount };
+
+    document.getElementById('drop-cmp').classList.add('loaded');
+    document.getElementById('name-cmp').textContent  = filename;
+    document.getElementById('name-cmp').classList.remove('hidden');
+    document.getElementById('stats-cmp').classList.remove('hidden');
+    document.getElementById('cmp-total').textContent = rows.length;
+    document.getElementById('cmp-smt').textContent   = smtCount;
+
+    checkReady();
+  } catch(err) {
+    alert('Erreur lecture CMP : ' + err.message);
+  }
+}
+
+
+function checkReady() {
+  const ready = state.lumi && state.cmp;
+  document.getElementById('btn-run').disabled = !ready;
+  document.getElementById('run-hint').textContent = ready
+    ? 'Les 2 fichiers sont chargés — prêt à générer'
+    : 'Chargez les 2 fichiers pour continuer';
+  if (ready) setStep(2);
+}
+
+// ─── Main Process ─────────────────────────────────────────────────────────────
+function runProcess() {
+  setStep(3);
+  const logs = [];
+  const log = (msg, type='info') => {
+    const t = new Date().toLocaleTimeString('fr-FR');
+    logs.push({ t, msg, type });
+  };
+
+  const optNC   = document.getElementById('opt-nc').checked;
+  const optTHT  = document.getElementById('opt-thru').checked;
+  const optDNP  = document.getElementById('opt-dnp').checked;
+
+  const { bomMap } = state.lumi;
+  const { rows } = state.cmp;
+
+  log(`Chargement : ${rows.length} composants centroïdes`, 'ok');
+  log(`BOM Luminovo : ${Object.keys(bomMap).length} désignateurs`, 'ok');
+
+  let matched = 0, unmatched = [], filtered = 0;
+  const pnpRows = [];    // PnP complet
+  const cliRows = [];    // PnP CLI (import MYCenter)
+  const bomPPMap = {};   // Pour BOM PP groupé
+
+  rows.forEach(r => {
+    const ref  = r.ref;
+    const face = r.face === 'BOTTOM' ? 'BOT' : r.face;
+
+    // Filtrage NC / fiduciaux
+    if (optNC && (r.ipn === '*' || ref.startsWith('MIRE') || ref.startsWith('M10') || ref.startsWith('M20'))) {
+      // Vérifier si c'est vraiment un fiducial (IPN = * ou repère MIRE)
+      if (r.ipn === '*') { filtered++; return; }
+    }
+
+    // Jointure avec BOM Luminovo — source unique de vérité pour l'IPN
+    const bom = bomMap[ref];
+
+    let ipn = '', mpn = '', pkg = '', mount = '', effectiveFace = face;
+
+    if (!bom) {
+      // Absent de Luminovo -> IPN = 'MANQUANT BOM', face conservée
+      unmatched.push(r);
+      ipn = 'MANQUANT BOM';
+    } else {
+      // IPN uniquement depuis Luminovo — si vide dans Luminovo, reste vide
+      ipn   = bom.ipn || bom.mpn || '';
+      mpn   = bom.mpn   || '';
+      pkg   = bom.pkg   || '';
+      mount = bom.mount || '';
+      matched++;
+    }
+
+    // Filtrage THT
+    if (optTHT && mount.toUpperCase() === 'THT') { filtered++; return; }
+
+    // PnP ligne — face toujours TOP/BOT
+    pnpRows.push({ REF: ref, VAL: ipn, PACKAGE: pkg, PosX: r.x, PosY: r.y, Rot: r.rot, Side: face });
+
+    // CLI ligne — REF | IPN | X | Y | Rot | Side (face uniquement)
+    cliRows.push([ref, ipn, pkg, r.x.toFixed(2), r.y.toFixed(2), r.rot, face]);
+
+    // BOM PP groupé par IPN (seulement si vrai IPN)
+    if (ipn && ipn !== 'MANQUANT BOM') {
+      if (!bomPPMap[ipn]) bomPPMap[ipn] = { ipn, mpn, pkg, mount, face, refs: [] };
+      bomPPMap[ipn].refs.push(ref);
+    }
+  });
+
+  // Composants présents dans Luminovo mais absents du CMP -> MANQUANT CMP
+  const cmpRefs = new Set(rows.map(r => r.ref));
+  let missingCMP = 0;
+  Object.entries(bomMap).forEach(([ref, bom]) => {
+    if (!cmpRefs.has(ref)) {
+      missingCMP++;
+      pnpRows.push({ REF: ref, VAL: 'MANQUANT CMP', PACKAGE: bom.pkg, PosX: '', PosY: '', Rot: '', Side: '' });
+      cliRows.push([ref, 'MANQUANT CMP', '', '', '', '', '']);
+      if (bom.ipn && bom.ipn !== '') {
+        if (!bomPPMap[bom.ipn]) bomPPMap[bom.ipn] = { ipn: bom.ipn, mpn: bom.mpn, pkg: bom.pkg, mount: bom.mount, face: '', refs: [] };
+        bomPPMap[bom.ipn].refs.push(ref);
+      }
+    }
+  });
+
+  log(`Jointure : ${matched} matchés, ${unmatched.length} sans correspondance BOM`, unmatched.length > 0 ? 'warn' : 'ok');
+  if (missingCMP > 0) log(`${missingCMP} composants Luminovo absents du CMP (MANQUANT CMP)`, 'warn');
+  log(`Exclus : ${filtered} composants (NC/fiduciaux/THT)`, 'info');
+  log(`PnP CLI : ${cliRows.length} lignes générées`, 'ok');
+  setStep(4);
+
+  // BOM PP rows
+  const bomPPRows = Object.values(bomPPMap).map(b => ({
+    Designator: b.refs.join(', '),
+    Qty: b.refs.length,
+    'Internal part number': b.ipn,
+    Package: b.pkg,
+    MPN: b.mpn,
+    Mounting: b.mount,
+    MAG: '',
+    FACE: b.face
+  }));
+
+  log(`BOM PP : ${bomPPRows.length} références uniques`, 'ok');
+
+  state.result = { pnpRows, cliRows, bomPPRows, unmatched, matched, filtered, logs };
+
+  // Mise à jour UI
+  document.getElementById('res-matched').textContent = matched;
+  document.getElementById('res-unmatched').textContent = unmatched.length;
+  document.getElementById('res-filtered').textContent = filtered;
+  document.getElementById('res-pnp').textContent = cliRows.length;
+
+  // Log display
+  const logEl = document.getElementById('log');
+  logEl.innerHTML = logs.map(l =>
+    `<div class="log-line"><span class="log-time">${l.t}</span><span class="log-${l.type}">${l.msg}</span></div>`
+  ).join('');
+
+  // Unmatched table
+  if (unmatched.length > 0) {
+    document.getElementById('unmatched-section').classList.remove('hidden');
+    document.getElementById('unmatched-tbody').innerHTML = unmatched.map(r =>
+      `<tr><td>${r.ref}</td><td>${r.ipn || '—'}</td><td>${r.face}</td></tr>`
+    ).join('');
+  }
+
+  document.getElementById('results').classList.remove('hidden');
+  setStep(5);
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ─── Downloads ────────────────────────────────────────────────────────────────
+function downloadXLSX() {
+  const { pnpRows, cliRows, bomPPRows } = state.result;
+  const wb = XLSX.utils.book_new();
+
+  // Feuille BOM PP
+  const wsBOM = XLSX.utils.json_to_sheet(bomPPRows);
+  XLSX.utils.book_append_sheet(wb, wsBOM, 'BOM PP');
+
+  // Feuille PnP
+  const wsPnP = XLSX.utils.json_to_sheet(pnpRows);
+  XLSX.utils.book_append_sheet(wb, wsPnP, 'PnP');
+
+  // Feuille PnP CLI (sans entête)
+  const wsCLI = XLSX.utils.aoa_to_sheet(cliRows);
+  XLSX.utils.book_append_sheet(wb, wsCLI, 'PnP CLI');
+
+  XLSX.writeFile(wb, `BOM_PP_${state.projectName}.xlsx`);
+}
+
+function downloadCSV() {
+  const { cliRows } = state.result;
+  const csv = cliRows.map(r => r.join('\t')).join('\n');
+  const blob = new Blob([csv], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `PnP_CLI_${state.projectName}.csv`;
+  a.click();
+}
+
+
+
+
+// ─── GSheet base clients ──────────────────────────────────────────────────────
+const GSHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSANDcvgktbNTXc4ElTobHxOhu38D7xZn9f7iU6nIBicI-u7lrYOBC8YlUNRE0fWIBzWC8wFJnEXtUc/pub?gid=0&single=true&output=tsv';
+
+// Données intégrées (mise à jour via bouton Rafraîchir)
+const GSHEET_BUILTIN = `Nom	MPN_strict	Notes	detect_mot_cle	separateur	col_ref	col_x	col_y	col_rot	col_face
+AMG	non		Designator,Comment,Layer	virgule	Designator	Center-X(mil)	Center-Y(mil)	Rotation	Layer
+ANNECY ELEC	oui	colonne Equi autorisé en BOM client							
+ARCEL	non	Attention peut etre des ref imposées sur certaines BOM							
+CEA CADARACHE	non								
+CERN	non								
+CORDOUAN	non								
+HORIBA	non		Altium Designer Pick	virgule	Designator	Center-X(mm)	Center-Y(mm)	Rotation	Layer
+ILL	non		Component Report	TAB	REFDES	SYM_X	SYM_Y	SYM_ROTATE	SYM_MIRROR
+INSAVALOR	non			TAB	0	4	5	6	2
+LAPP Annecy	non								
+LEM (CH)	non								
+LEM TECH BULGARIE	non		Altium Designer Pick and Place	virgule	Designator	Center-X(mm)	Center-Y(mm)	Rotation	Layer
+LEM TECH FR	non								
+LILACO	non								
+LOCATIS	oui		Designator,Comment,Layer	virgule	Designator	Center-X(mil)	Center-Y(mil)	Rotation	Layer
+MERIO	non		Altium Designer Pick	TAB	Designator	Center-X(mm)	Center-Y(mm)	Rotation	Layer
+MERIO	non	Format alternatif sans entête		TAB	0	2	3		8
+MICRO BEAM	non								
+MINISTERE DES ARMEES	non		Altium Designer Pick	TAB	Designator	Center-X(mm)	Center-Y(mm)	Rotation	Layer
+PFEIFFER	non		Component List Report	TAB	1	2	3	4	5
+Proto Process	non		NA	TAB	Designator	Center-X(mm)	Center-Y(mm)	Rotation	Layer
+RTSYS	non		Altium Designer Pick and Place	virgule	Designator	Center-X(mm)	Center-Y(mm)	Rotation	Layer
+SEFRAM	oui		REPERE	TAB	REPERE	POS X (mm)	POS Y (mm)	ANGLE	FACE
+SICPA	non		Designator,Comment,Layer	virgule	Designator	Center-X(mm)	Center-Y(mm)	Rotation	Layer
+SYNOPSIS	non		PartType;RefDes;PartDecal	point-virgule	RefDes	X	Y	Orient.	Layer
+VIAVI	oui		refdes,symbol_x,symbol_y	virgule	refdes	symbol_x	symbol_y	rotation	BOTirror`
+
+state.clientDB = [];
+state.matchedClient = null;
+
+function parseClientDB(tsv) {
+  const lines = tsv.trim().split('\n');
+  const header = lines[0].split('\t').map(h => h.trim().toLowerCase());
+  const iNom   = header.indexOf('nom');
+  const iMPN   = header.indexOf('mpn_strict');
+  const iNotes = header.indexOf('notes');
+  const iDet   = header.indexOf('detect_mot_cle');
+  const iSep   = header.indexOf('separateur');
+  const iRef   = header.indexOf('col_ref');
+  const iX     = header.indexOf('col_x');
+  const iY     = header.indexOf('col_y');
+  const iRot   = header.indexOf('col_rot');
+  const iFace  = header.indexOf('col_face');
+
+  return lines.slice(1).map(l => {
+    const c = l.split('\t');
+    return {
+      nom:       (c[iNom]  ||'').trim(),
+      mpnStrict: (c[iMPN]  ||'').trim().toLowerCase() === 'oui',
+      notes:     (c[iNotes]||'').trim(),
+      detect:    (c[iDet]  ||'').trim(),
+      sep:       (c[iSep]  ||'').trim(),
+      colRef:    (c[iRef]  ||'').trim(),
+      colX:      (c[iX]    ||'').trim(),
+      colY:      (c[iY]    ||'').trim(),
+      colRot:    (c[iRot]  ||'').trim(),
+      colFace:   (c[iFace] ||'').trim(),
+    };
+  }).filter(c => c.nom);
+}
+
+async function loadClientDB() {
+  const dot  = document.getElementById('gsheet-dot');
+  const info = document.getElementById('gsheet-info');
+
+  // Charger les données intégrées IMMÉDIATEMENT — toujours disponible
+  state.clientDB = parseClientDB(GSHEET_BUILTIN);
+  dot.className  = 'gsheet-dot ok';
+  info.textContent = state.clientDB.length + ' clients (données intégrées)';
+  populateClientSelect();
+
+  // Tentative de mise à jour depuis la GSheet en arrière-plan (silencieuse)
+  try {
+    const proxies = [
+      () => fetch(GSHEET_URL, {mode:'cors'}).then(r => { if(!r.ok) throw 0; return r.text(); }),
+      () => fetch('https://api.allorigins.win/get?url='+encodeURIComponent(GSHEET_URL))
+              .then(r=>r.json()).then(j=>j.contents),
+      () => fetch('https://corsproxy.io/?'+encodeURIComponent(GSHEET_URL))
+              .then(r=>{ if(!r.ok) throw 0; return r.text(); }),
+    ];
+    let fresh = '';
+    for (const t of proxies) { try { fresh = await t(); if(fresh) break; } catch(e){} }
+
+    if (fresh) {
+      state.clientDB = parseClientDB(fresh);
+      dot.className  = 'gsheet-dot ok';
+      info.textContent = state.clientDB.length + ' clients (GSheet à jour)';
+    } else {
+      dot.className  = 'gsheet-dot ok';
+      info.textContent = state.clientDB.length + ' clients (données intégrées)';
+    }
+    populateClientSelect();
+  } catch(e) {
+    dot.className  = 'gsheet-dot ok';
+    info.textContent = state.clientDB.length + ' clients (données intégrées)';
+    populateClientSelect();
+  }
+}
+
+function populateClientSelect() {
+  const sel = document.getElementById('client-select');
+  if (!sel) return;
+  // Garder l'option vide
+  sel.innerHTML = '<option value="">— Sélectionner client —</option>';
+  state.clientDB.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.nom;
+    opt.textContent = c.nom + (c.mpnStrict ? ' ★' : '');
+    sel.appendChild(opt);
+  });
+}
+
+function selectClientManual(nom) {
+  if (!nom) { state.matchedClient = null; showClientBadge(null); return; }
+  const client = state.clientDB.find(c => c.nom === nom);
+  if (client) { state.matchedClient = client; showClientBadge(client); }
+}
+
+function detectClient(filename, fileContent) {
+  if (!state.clientDB.length) return null;
+  const haystack = (filename + ' ' + (fileContent||'')).toUpperCase();
+  return state.clientDB.find(c => haystack.includes(c.nom.toUpperCase())) || null;
+}
+
+function showClientBadge(client) {
+  const badges = document.getElementById('gsheet-badges');
+  badges.innerHTML = '';
+  if (!client) return;
+  const b1 = document.createElement('div');
+  b1.className = 'gsheet-client-badge';
+  b1.textContent = client.nom;
+  badges.appendChild(b1);
+  if (client.mpnStrict) {
+    const b2 = document.createElement('div');
+    b2.className = 'gsheet-mpn-badge';
+    b2.textContent = 'MPN STRICT';
+    badges.appendChild(b2);
+  }
+  if (client.notes) {
+    document.getElementById('gsheet-info').textContent = client.notes;
+  }
+}
+
+function getClientCMPFormats(clientNom) {
+  if (!clientNom) return [];
+  // Retourne TOUS les formats définis pour ce client (plusieurs lignes possibles)
+  return state.clientDB
+    .filter(c => c.nom === clientNom && (c.detect || c.colRef))
+    .map(c => ({
+      detect:  c.detect,
+      sep:     c.sep || 'TAB',
+      colRef:  c.colRef,
+      colX:    c.colX,
+      colY:    c.colY,
+      colRot:  c.colRot,
+      colFace: c.colFace,
+    }));
+}
+
+// Compat : ancienne fonction retourne le premier format
+function getClientCMPFormat(client) {
+  if (!client) return null;
+  const all = getClientCMPFormats(client.nom);
+  return all.length ? all[0] : null;
+}
+
+window.addEventListener('load', loadClientDB);
+
+// ─── UI helpers ───────────────────────────────────────────────────────────────
+function setStep(n) {
+  for (let i = 1; i <= 5; i++) {
+    const el = document.getElementById('step'+i);
+    el.className = 'step' + (i < n ? ' done' : i === n ? ' active' : '');
+  }
+}
+</script>
+
+
+
+
+
+</body></html>
