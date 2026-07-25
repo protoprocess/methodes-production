@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AOI Converter — v1.0 — 25/07/2026</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<style>
+  :root {
+    --bg: #0a0c12;
+    --surface: #1a2030;
+    --surface2: #161b27;
+    --border: #262e42;
+    --border2: #333d55;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #64748b;
+    --blue: #F07B1F;
+    --blue-bg: #2a1f10;
+    --pp-blue: #5BC4D8;
+    --radius: 6px;
+    --radius-lg: 10px;
+    --mono: "SF Mono", "Cascadia Code", Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 40px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .logo { display:flex; align-items:center; gap:9px; }
+  .logo-text { display:flex; align-items:center; gap:0; font-size:13px; font-weight:500; }
+  .logo-text .lt { color:#fff; }
+  .logo-text .ls { color:#444; margin:0 3px; }
+  .logo-text .lo { color:var(--blue); }
+  .hdr-note { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+  header h1 { font-size: 15px; font-weight: 600; }
+  header span.subtitle { font-size: 13px; color: var(--text3); font-family: var(--mono); }
+
+  main {
+    flex: 1;
+    padding: 32px 40px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    max-width: min(96vw, 1400px);
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+  }
+
+  .card-label {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .card h2 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .card p { font-size: 12px; color: var(--text3); margin-bottom: 18px; line-height: 1.5; }
+
+  .drop-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: 8px;
+    padding: 32px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--blue);
+    background: rgba(240, 123, 31, 0.04);
+  }
+
+  .drop-zone.loaded {
+    border-color: var(--blue);
+    background: rgba(240, 123, 31, 0.05);
+  }
+
+  .drop-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  }
+
+  .drop-icon { font-size: 28px; margin-bottom: 10px; display: block; }
+  .drop-hint { font-size: 12px; color: var(--text3); }
+  .drop-hint strong { color: var(--text); }
+  .filename { font-family: var(--mono); font-size: 12px; color: var(--blue); margin-top: 8px; }
+
+  /* Règles de transformation */
+  .rules-card { grid-column: span 2; }
+
+  .rules-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 4px;
+  }
+
+  .rule {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    border: 1px solid var(--border);
+  }
+
+  .rule-col {
+    font-size: 11px;
+    color: var(--text3);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .rule-arrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .rule-from { color: var(--text3); text-decoration: line-through; font-size: 11px; }
+  .rule-to { color: var(--blue); font-size: 12px; font-weight: 600; }
+  .rule-arrow span { color: var(--text3); }
+
+  /* Bouton run */
+  .run-section { grid-column: span 2; display: flex; align-items: center; gap: 16px; }
+
+  .btn-run {
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 13px 32px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .btn-run:disabled { background: var(--surface2); color: var(--text3); cursor: not-allowed; }
+  .btn-run:not(:disabled):hover { filter: brightness(1.12); transform: translateY(-1px); }
+
+  /* Résultats */
+  .results-card { grid-column: span 2; }
+
+  .stats-row { display: flex; gap: 12px; margin-bottom: 20px; }
+
+  .stat {
+    flex: 1;
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-family: var(--mono);
+  }
+
+  .stat-val { font-size: 20px; font-weight: 600; color: var(--blue); }
+  .stat-lbl { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+  .btn-dl {
+    border: 1.5px solid var(--blue);
+    background: transparent;
+    color: var(--blue);
+    border-radius: 7px;
+    padding: 10px 22px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-dl:hover { background: rgba(240, 123, 31, 0.1); }
+
+  /* Preview table */
+  .preview {
+    margin-top: 16px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: auto;
+    max-height: 300px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  th {
+    background: var(--surface2);
+    color: var(--text3);
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 400;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+  }
+
+  td { padding: 6px 12px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+
+  .col-highlight { color: var(--blue); font-weight: 600; }
+
+  .hidden { display: none !important; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <img src="../shared/picto-pp.png" alt="Proto Process" width="24" height="24" style="object-fit:contain" onerror="this.style.display='none'">
+    <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">AOI Converter</span></span>
+  </div>
+  <span class="subtitle">Transformation fichier placement → format AOI</span>
+  <div style="flex:1"></div>
+  <span class="hdr-note" id="hdr-version"></span>
+</header>
+
+<main>
+
+  <!-- Drop zone -->
+  <div class="card" style="grid-column: span 2;">
+    <div class="card-label">Fichier source</div>
+    <h2>Fichier de placement</h2>
+    <p>Fichier TSV/CSV avec les colonnes : REF | IPN | _ | Package | X | Y | Rotation | Top | Mirror</p>
+    <div class="drop-zone" id="drop-zone"
+      ondragover="handleDragOver(event)" ondragleave="handleDragLeave()" ondrop="handleDrop(event)">
+      <input type="file" accept=".tsv,.csv,.txt" onchange="handleFileSelect(event)">
+      <i class="ti ti-upload drop-icon" aria-hidden="true"></i>
+      <div class="drop-hint"><strong>Glisser-déposer</strong> ou cliquer pour sélectionner</div>
+      <div class="drop-hint" style="margin-top:4px">Formats : .tsv, .csv</div>
+      <div class="filename hidden" id="filename"></div>
+    </div>
+  </div>
+
+  <!-- Règles de transformation -->
+  <div class="card rules-card">
+    <div class="card-label">Règles de transformation</div>
+    <h2 style="margin-bottom:14px">Colonnes source → AOI</h2>
+    <div class="rules-grid">
+      <div class="rule">
+        <div class="rule-col">Col A — Référence</div>
+        <div class="rule-arrow"><span class="rule-to">Inchangée</span></div>
+      </div>
+      <div class="rule">
+        <div class="rule-col">Col B — IPN</div>
+        <div class="rule-arrow"><span class="rule-to">Inchangée</span></div>
+      </div>
+      <div class="rule">
+        <div class="rule-col">Col C — Séparateur (_)</div>
+        <div class="rule-arrow"><span class="rule-from">_</span> <span>→</span> <span class="rule-to">Supprimée</span></div>
+      </div>
+      <div class="rule">
+        <div class="rule-col">Col D → C — Package</div>
+        <div class="rule-arrow"><span class="rule-to">Décalée en C</span></div>
+      </div>
+      <div class="rule">
+        <div class="rule-col">Col E, F — X, Y</div>
+        <div class="rule-arrow"><span class="rule-to">Inchangées</span></div>
+      </div>
+      <div class="rule">
+        <div class="rule-col">Col G — Rotation</div>
+        <div class="rule-arrow">
+          <span class="rule-from">90000</span>
+          <span>→</span>
+          <span class="rule-to">val ÷ 1000 − 90</span>
+        </div>
+      </div>
+      <div class="rule">
+        <div class="rule-col">Col H — Face</div>
+        <div class="rule-arrow"><span class="rule-to">Inchangée</span></div>
+      </div>
+      <div class="rule">
+        <div class="rule-col">Col I — Mirror</div>
+        <div class="rule-arrow"><span class="rule-from">True/False</span> <span>→</span> <span class="rule-to">Supprimée</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Run -->
+  <div class="run-section">
+    <button class="btn-run" id="btn-run" onclick="runConvert()" disabled>
+      <i class="ti ti-player-play" aria-hidden="true"></i> Convertir
+    </button>
+    <div style="font-size:12px; color:var(--text3)" id="run-hint">Chargez un fichier pour continuer</div>
+  </div>
+
+  <!-- Résultats -->
+  <div class="card results-card hidden" id="results">
+    <div class="card-label">Résultat</div>
+    <h2 style="margin-bottom:16px">Conversion terminée</h2>
+
+    <div class="stats-row">
+      <div class="stat"><div class="stat-val" id="res-lignes">—</div><div class="stat-lbl">Lignes converties</div></div>
+      <div class="stat"><div class="stat-val" id="res-top">—</div><div class="stat-lbl">Face TOP</div></div>
+      <div class="stat"><div class="stat-val" id="res-bot">—</div><div class="stat-lbl">Face BOT</div></div>
+    </div>
+
+    <button class="btn-dl" onclick="downloadResult()"><i class="ti ti-download" aria-hidden="true"></i> Télécharger le fichier AOI (.csv)</button>
+
+    <div class="preview">
+      <table>
+        <thead>
+          <tr>
+            <th>A — REF</th>
+            <th>B — IPN</th>
+            <th>C — Package</th>
+            <th>D — X</th>
+            <th>E — Y</th>
+            <th class="col-highlight">F — Rotation</th>
+            <th class="col-highlight">G — Face</th>
+          </tr>
+        </thead>
+        <tbody id="preview-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<script>
+/* ---------- version ---------- */
+// Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
+const APP_VERSION = "1.0";
+const APP_DATE = "25/07/2026";
+document.title = `AOI Converter — v${APP_VERSION} — ${APP_DATE}`;
+document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
+
+let sourceData = null;
+let convertedRows = [];
+let outputFilename = 'AOI_output.csv';
+
+// ── Drag & Drop ───────────────────────────────────────────────────────────────
+function handleDragOver(e) { e.preventDefault(); document.getElementById('drop-zone').classList.add('dragover'); }
+function handleDragLeave()  { document.getElementById('drop-zone').classList.remove('dragover'); }
+function handleDrop(e) { e.preventDefault(); handleDragLeave(); loadFile(e.dataTransfer.files[0]); }
+function handleFileSelect(e) { loadFile(e.target.files[0]); }
+
+function loadFile(file) {
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = (ev) => {
+    const text = ev.target.result.includes('\uFFFD')
+      ? null : ev.target.result;
+    if (!text) {
+      const r2 = new FileReader();
+      r2.onload = (ev2) => parseFile(ev2.target.result, file.name);
+      r2.readAsText(file, 'latin-1');
+    } else {
+      parseFile(text, file.name);
+    }
+  };
+  r.readAsText(file, 'utf-8');
+}
+
+// ── Parse ─────────────────────────────────────────────────────────────────────
+function parseFile(text, filename) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  const sep = (lines[0].match(/\t/g)||[]).length >= 3 ? '\t' : ',';
+
+  sourceData = lines.map(l => l.split(sep).map(c => c.trim().replace(/^"|"$/g,'')));
+  outputFilename = filename.replace(/\.(tsv|csv|txt)$/i, '') + '-AOI.csv';
+
+  document.getElementById('drop-zone').classList.add('loaded');
+  document.getElementById('filename').textContent = filename;
+  document.getElementById('filename').classList.remove('hidden');
+  document.getElementById('btn-run').disabled = false;
+  document.getElementById('run-hint').textContent = `${lines.length} lignes chargées — prêt à convertir`;
+}
+
+// ── Conversion ────────────────────────────────────────────────────────────────
+function runConvert() {
+  if (!sourceData) return;
+
+  convertedRows = [];
+  const normalRows = [], ncRows = [], tradRows = [];
+
+  sourceData.forEach(cols => {
+    if (cols.length < 7) return;
+
+    const ref    = cols[0] || '';
+    const ipn    = cols[1] || '';
+    const isNC   = ipn.trim().toUpperCase() === 'NC';
+    const isTRAD = ipn.trim().toUpperCase() === 'TRAD';
+    const pkg    = isNC ? 'NC' : isTRAD ? 'TRAD' : (cols[3] || '').replace(/\s+/g, '');
+    const x      = cols[4] || '';
+    const y      = cols[5] || '';
+    const rotRaw = parseFloat(cols[6]) || 0;
+    const rot    = rotRaw / 1000 - 90;
+    const faceRaw = (cols[7] || '').trim().toLowerCase();
+    const face = faceRaw === 'true' ? 'monter' : faceRaw === 'false' ? 'non monté' : (cols[7] || '').trim();
+
+    if (!ref) return;
+
+    const row = [ref, ipn, pkg, x, y, rot, face];
+    if (isNC)        ncRows.push(row);
+    else if (isTRAD) tradRows.push(row);
+    else             normalRows.push(row);
+  });
+
+  // Ordre : composants normaux → NC → TRAD
+  convertedRows = [...normalRows, ...ncRows, ...tradRows];
+
+  // Stats
+  const top = convertedRows.filter(r => r[6] === 'T').length;
+  const bot = convertedRows.filter(r => r[6] === 'F').length;
+
+  document.getElementById('res-lignes').textContent = convertedRows.length;
+  document.getElementById('res-top').textContent = top;
+  document.getElementById('res-bot').textContent = bot;
+
+  // Preview (10 premières lignes)
+  const tbody = document.getElementById('preview-body');
+  tbody.innerHTML = convertedRows.slice(0, 10).map(r =>
+    `<tr>
+      <td>${r[0]}</td>
+      <td>${r[1]}</td>
+      <td>${r[2]}</td>
+      <td>${r[3]}</td>
+      <td>${r[4]}</td>
+      <td class="col-highlight">${r[5]}</td>
+      <td class="col-highlight">${r[6]}</td>
+    </tr>`
+  ).join('');
+
+  document.getElementById('results').classList.remove('hidden');
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── Download ──────────────────────────────────────────────────────────────────
+function downloadResult() {
+  if (!convertedRows.length) return;
+  const csv = convertedRows.map(r => r.join('\t')).join('\n');
+  const blob = new Blob([csv], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = outputFilename;
+  a.click();
+}
+</script>
+</body>
+</html>
