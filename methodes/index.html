@@ -921,7 +921,7 @@ function parseCMP(text, filename) {
       // Accepte refdes classiques (C1, R10) ET atypiques (VR5, OUT-, IN+, J1rec)
       const hasRef = cols.some(c => /^[A-Z]/i.test(c) && c.length >= 2 && !/^(true|false|top|bottom|toplayer|bottomlayer)$/i.test(c));
       // Accepte virgule décimale (9,5), point (9.5), et nombres avec unités (9.5mm, 100mil)
-      const hasNum = cols.filter(c => /^-?\d+([.,]\d+)?(mm|mil|thou|in)?$/i.test(c)).length >= 2;
+      const hasNum = cols.filter(c => /^-?\d+([.,]\d+)?(mm|mil|thou|in)?$/i.test(c.trim())).length >= 2;
       return hasRef && hasNum;
     }
 
@@ -1486,6 +1486,7 @@ const GSHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSANDcvgktbN
 // Données intégrées (mise à jour via bouton Rafraîchir)
 const GSHEET_BUILTIN = `Nom	MPN_strict	Notes	detect_mot_cle	separateur	col_ref	col_x	col_y	col_rot	col_face
 AMG	non		Designator,Comment,Layer	virgule	Designator	Center-X(mil)	Center-Y(mil)	Rotation	Layer
+AMG MICROWAVE	non		Designator Footprint	spaces	0	2	3	9	8
 ANNECY ELEC	oui	colonne Equi autorisé en BOM client							
 ARCEL	non	Attention peut etre des ref imposées sur certaines BOM							
 CEA CADARACHE	non								
