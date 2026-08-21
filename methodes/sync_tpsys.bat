@@ -26,12 +26,12 @@ if errorlevel 2 exit /b 0
 
 echo.
 echo --- Copie vers TPSys ---
-scp "%DL%\%SQLFILE%" %HOST%:/home/tpsys/
+scp -o StrictHostKeyChecking=accept-new "%DL%\%SQLFILE%" %HOST%:/home/tpsys/
 if errorlevel 1 ( echo [ERREUR] Copie SSH impossible - verifier reseau/cle & pause & exit /b 1 )
 
 echo.
 echo --- Execution ---
-ssh %HOST% "psql -U postgres -d mydata_common_db -f /home/tpsys/%SQLFILE%"
+ssh -o StrictHostKeyChecking=accept-new %HOST% "psql -U postgres -d mydata_common_db -f /home/tpsys/%SQLFILE%"
 echo.
 echo --- Termine. Attendu : BEGIN, DO, N x INSERT 0 1, UPDATE 1, UPDATE n, COMMIT ---
 echo --- Si EXCEPTION compteur : script deja passe ou base desynchronisee, rien ecrit ---
