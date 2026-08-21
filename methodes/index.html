@@ -693,7 +693,7 @@
 <script>
 /* ---------- version ---------- */
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
-const APP_VERSION = "2.1";
+const APP_VERSION = "2.2";
 const APP_DATE = "21/08/2026";
 document.title = `MYCenter Prep — Automatisation BOM + PnP — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -1721,6 +1721,16 @@ function setStep(n) {
 const SUP_WEBHOOK = 'https://protoprocess.app.n8n.cloud/webhook/supports-allocate';
 const supState = { lignes: [], alloues: null };
 
+function supLog(msg, type) {
+  const el = document.getElementById('log');
+  if (!el) return;
+  const t = new Date().toLocaleTimeString('fr-FR');
+  const cls = type === 'ok' ? 'log-ok' : (type === 'warn' ? 'log-warn' : 'log-info');
+  el.insertAdjacentHTML('beforeend', '<div class="log-line"><span class="log-time">' + t + '</span><span class="' + cls + '"></span></div>');
+  el.lastChild.lastChild.textContent = msg;
+  el.scrollTop = el.scrollHeight;
+}
+
 function supHandleDrop(e) {
   e.preventDefault(); handleDragLeave('drop-sup');
   const f = e.dataTransfer.files[0]; if (f) supProcessFile(f);
@@ -1779,7 +1789,7 @@ function supProcessFile(file) {
       document.getElementById('sup-actions').style.display = 'none';
       document.getElementById('sup-btn-alloc').disabled = false;
       document.getElementById('sup-hint').textContent = my.length + ' supports à créer — vérifier puis attribuer';
-      log('Étape 6 : ' + my.length + ' références MY chargées depuis ' + file.name, 'ok');
+      supLog('Étape 6 : ' + my.length + ' références MY chargées depuis ' + file.name, 'ok');
     } catch (err) {
       alert('Lecture BOM PP impossible : ' + err.message);
     }
@@ -1830,7 +1840,7 @@ async function supAllocate() {
     const first = arr[0].carrierid, last = arr[arr.length - 1].carrierid;
     document.getElementById('sup-hint').textContent =
       arr.length + ' supports attribués : R' + first + ' → R' + last;
-    log('Étape 6 : ' + arr.length + ' n° attribués (R' + first + ' → R' + last + ') pour ' + so, 'ok');
+    supLog('Étape 6 : ' + arr.length + ' n° attribués (R' + first + ' → R' + last + ') pour ' + so, 'ok');
   } catch (err) {
     btn.disabled = false;
     document.getElementById('sup-hint').textContent = 'Échec : ' + err.message;
