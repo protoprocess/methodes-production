@@ -514,96 +514,8 @@
   .pl-ipn { font:6.5pt "Courier New",monospace; color:#000; white-space:nowrap; }
   .pl-head { font:bold 10pt Arial,sans-serif; color:#000; width:100%; margin-bottom:2mm; }
 </style>
-
-<style>
-/* signalement : bouton flottant, module commun (chantier 72) */
-#sig-btn{position:fixed;right:18px;bottom:18px;z-index:60;display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border-radius:22px;background:var(--surface,#1a2030);color:var(--text2,#94a3b8);border:1px solid var(--border2,#333d55);box-shadow:0 4px 14px rgba(0,0,0,.4);cursor:pointer;font-size:12px;font-family:inherit}
-#sig-btn:hover{color:var(--blue,#F07B1F);border-color:var(--blue,#F07B1F)}
-#sig-fond{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:18px}
-#sig-fond.hidden{display:none}
-#sig-boite{background:var(--surface,#1a2030);border:1px solid var(--border2,#333d55);border-radius:10px;width:min(94vw,560px);max-height:90vh;overflow:auto;padding:18px;color:var(--text,#e2e8f0);font-size:13px}
-#sig-boite h2{font-size:15px}
-.sig-t{display:flex;gap:6px;margin:0 0 11px;flex-wrap:wrap}
-.sig-t button{flex:1;min-width:120px;padding:8px 10px;border-radius:6px;background:transparent;color:var(--text2,#94a3b8);border:1px solid var(--border,#262e42);font-size:12px;cursor:pointer;font-family:inherit}
-.sig-t button.on{background:var(--blue,#F07B1F);color:#fff;border-color:transparent;font-weight:500}
-#sig-boite label.f{display:block;font-size:11.5px;color:var(--text2,#94a3b8);margin:0 0 4px}
-#sig-boite input.f,#sig-boite textarea.f{width:100%;box-sizing:border-box;background:var(--surface2,#161b27);color:var(--text,#e2e8f0);border:1px solid var(--border,#262e42);border-radius:6px;padding:7px 9px;font-size:12.5px;font-family:inherit;margin-bottom:10px}
-#sig-boite .btn-ann{padding:6px 13px;background:transparent;color:var(--text2,#94a3b8);border:1px solid var(--border,#262e42);border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit}
-#sig-boite .btn-env{padding:6px 13px;background:var(--blue,#F07B1F);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit}
-</style>
 </head>
 <body>
-<!-- ===== ACCES PROTO PROCESS ===== -->
-<script>
-(function(){
-  var KEY='pp_access_code', HDR='X-PP-Auth', HOST='protoprocess.app.n8n.cloud';
-  function get(){try{return localStorage.getItem(KEY)||''}catch(e){return ''}}
-  function set(v){try{localStorage.setItem(KEY,v)}catch(e){}}
-  function del(){try{localStorage.removeItem(KEY)}catch(e){}}
-
-  /* 1) Interception installee EN PREMIER : ne depend d'aucun element HTML */
-  var _f = window.fetch;
-  window.fetch = function(input, init){
-    var url = '';
-    try { url = (typeof input === 'string') ? input : ((input && input.url) || ''); } catch(e){}
-    if (url.indexOf(HOST) === -1) { return _f.apply(this, arguments); }
-    init = init || {};
-    try { var h = new Headers(init.headers || {}); h.set(HDR, get()); init.headers = h; } catch(e){}
-    return _f.call(this, input, init).then(function(r){
-      if (r && (r.status === 401 || r.status === 403)) { del(); demander("Code d'acces refuse. Ressaisissez-le."); }
-      return r;
-    });
-  };
-
-  /* 2) Ecran construit en JS : aucune dependance au HTML de l'appli */
-  var box = null;
-  function construire(){
-    if (box) return box;
-    box = document.createElement('div');
-    box.id = 'pp-gate';
-    box.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:#0a0c12;display:none;'
-      + 'align-items:center;justify-content:center;padding:20px;'
-      + 'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif';
-    box.innerHTML =
-      '<div style="background:#1a2030;border:1px solid #262e42;border-radius:10px;padding:26px;max-width:380px;width:100%">'
-      + '<div style="font-size:13px;font-weight:500;margin-bottom:14px">'
-      +   '<span style="color:#fff">PROTO PROCESS</span><span style="color:#444;margin:0 3px">/</span>'
-      +   '<span style="color:#F07B1F">Acces</span></div>'
-      + '<div style="font-size:12.5px;color:#94a3b8;line-height:1.55;margin-bottom:16px">'
-      +   "Saisissez le code d'acces interne. Il ne vous sera demande qu'une fois sur cet appareil.</div>"
-      + '<input id="pp-in" type="password" placeholder="Code d acces" autocomplete="off" '
-      +   'style="width:100%;background:#161b27;border:1px solid #262e42;border-radius:6px;color:#e2e8f0;'
-      +   'padding:9px 11px;font-size:13px;outline:none;font-family:inherit;box-sizing:border-box">'
-      + '<div id="pp-err" style="font-size:12px;color:#f09595;margin-top:9px;min-height:16px"></div>'
-      + '<button id="pp-btn" style="width:100%;margin-top:12px;padding:9px;background:#F07B1F;color:#fff;'
-      +   'border:none;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">Valider</button>'
-      + '</div>';
-    document.body.appendChild(box);
-    var inp = box.querySelector('#pp-in'), btn = box.querySelector('#pp-btn');
-    btn.addEventListener('click', function(){
-      var v = (inp.value || '').trim();
-      if (!v) { box.querySelector('#pp-err').textContent = 'Code requis.'; return; }
-      set(v); inp.value = ''; box.style.display = 'none'; location.reload();
-    });
-    inp.addEventListener('keydown', function(e){ if (e.key === 'Enter') { btn.click(); } });
-    return box;
-  }
-
-  function demander(msg){
-    if (!document.body) { document.addEventListener('DOMContentLoaded', function(){ demander(msg); }); return; }
-    var b = construire();
-    b.querySelector('#pp-err').textContent = msg || '';
-    b.style.display = 'flex';
-    setTimeout(function(){ try { b.querySelector('#pp-in').focus(); } catch(e){} }, 50);
-  }
-
-  window.ppChangerCode = function(){ del(); demander(''); };
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function(){ if (!get()) demander(''); });
-  } else if (!get()) { demander(''); }
-})();
-</script>
-
 
 <header>
   <div class="logo">
@@ -781,7 +693,7 @@
 <script>
 /* ---------- version ---------- */
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
-const APP_VERSION = "3.0";
+const APP_VERSION = "2.1";
 const APP_DATE = "21/08/2026";
 document.title = `MYCenter Prep — Automatisation BOM + PnP — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -1827,7 +1739,8 @@ function supProcessFile(file) {
   reader.onload = function (ev) {
     try {
       const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
-      let ws = wb.Sheets['BOM PP'] || wb.Sheets[wb.SheetNames[0]];
+      const shName = wb.SheetNames.find(n => n.trim().toUpperCase().startsWith('BOM PP')) || wb.SheetNames[0];
+      let ws = wb.Sheets[shName];
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
       if (!rows.length) throw new Error('Feuille vide');
       // Colonne MAG : entête "MAG" si trouvée, sinon colonne G (index 6)
@@ -1836,7 +1749,7 @@ function supProcessFile(file) {
         const up = rows[r].map(c => String(c).trim().toUpperCase());
         const m = up.indexOf('MAG');
         if (m >= 0) { magCol = m; headerRow = r;
-          const i = up.indexOf('IPN'); if (i >= 0) ipnCol = i; break; }
+          const i = up.findIndex(h => h === 'IPN' || h.indexOf('INTERNAL PART') >= 0); if (i >= 0) ipnCol = i; break; }
       }
       const seen = new Set(); const my = []; let autres = 0;
       rows.forEach((row, idx) => {
@@ -2034,88 +1947,4 @@ function supDownloadSQL() {
 
 
 <div id="planche"></div>
-
-<button id="sig-btn" onclick="ouvrirSignalement()" title="Signaler un bug, une analyse fausse ou une idée">
-  <i class="ti ti-message-report"></i> Signaler</button>
-
-<div id="sig-fond" class="hidden">
-  <div id="sig-boite">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-      <h2 style="margin:0"><i class="ti ti-message-report"></i> Signaler</h2>
-      <button class="btn-ann" onclick="fermerSignalement()">✕</button>
-    </div>
-    <p style="font-size:11.5px;color:var(--text2,#94a3b8);margin:0 0 12px">
-      L'appli et sa version partent automatiquement avec votre message.</p>
-
-    <div class="sig-t" id="sig-types">
-      <button data-t="bug" class="on" onclick="sigType('bug')">Bug</button>
-      <button data-t="analyse" onclick="sigType('analyse')">Analyse fausse</button>
-      <button data-t="idee" onclick="sigType('idee')">Idée</button>
-    </div>
-
-    <label class="f">Votre nom</label>
-    <input class="f" id="sig-auteur" placeholder="pour qu'on puisse revenir vers vous">
-
-    <label class="f">Ce que vous avez constaté</label>
-    <textarea class="f" id="sig-desc" rows="6" placeholder="Sur une analyse fausse, précisez la valeur attendue et où vous l'avez lue."></textarea>
-
-    <div id="sig-msg" style="font-size:12px;margin-top:2px"></div>
-
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:13px">
-      <button class="btn-ann" onclick="fermerSignalement()">Annuler</button>
-      <button class="btn-env" id="sig-env" onclick="envoyerSignalement()">Envoyer</button>
-    </div>
-  </div>
-</div>
-
-<script>
-/* ---------- signalement : module commun (chantier 72) ----------
-   Auto-suffisant : URL de production en dur, l'en-tete X-PP-Auth est pose par
-   l'intercepteur d'acces commun. Le contexte minimal (appli, version) part
-   automatiquement. Destination : Data Table n8n + table Supabase signalements
-   (lue par Claude) + mail immediat. */
-(function(){
-  var URL_SIG = 'https://protoprocess.app.n8n.cloud/webhook/v2-signalement';
-  var CLE_SIGNALEUR = 'pp_signaleur';
-  var SIG_TYPE = 'bug';
-  var APPLI = 'methodes';
-
-  window.sigType = function(t){
-    SIG_TYPE = t;
-    document.querySelectorAll('#sig-types button').forEach(function(b){ b.classList.toggle('on', b.dataset.t === t); });
-  };
-  window.ouvrirSignalement = function(){
-    try{ document.getElementById('sig-auteur').value = localStorage.getItem(CLE_SIGNALEUR) || ''; }catch(e){}
-    document.getElementById('sig-msg').textContent = '';
-    document.getElementById('sig-fond').classList.remove('hidden');
-    document.getElementById('sig-desc').focus();
-  };
-  window.fermerSignalement = function(){ document.getElementById('sig-fond').classList.add('hidden'); };
-  window.envoyerSignalement = function(){
-    var desc = document.getElementById('sig-desc').value.trim();
-    var msg = document.getElementById('sig-msg');
-    if(!desc){ msg.innerHTML = '<span style="color:#f09595">Décrivez ce que vous avez constaté.</span>'; return; }
-    var auteur = document.getElementById('sig-auteur').value.trim();
-    try{ if(auteur) localStorage.setItem(CLE_SIGNALEUR, auteur); }catch(e){}
-    var btn = document.getElementById('sig-env');
-    btn.disabled = true;
-    msg.innerHTML = '<span style="color:var(--text2,#94a3b8)">Envoi…</span>';
-    fetch(URL_SIG, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        type: SIG_TYPE, description: desc, auteur: auteur,
-        appli: APPLI, version: (typeof APP_VERSION !== 'undefined' ? APP_VERSION : '')
-      })
-    }).then(function(r){
-      if(!r.ok) throw new Error('HTTP ' + r.status);
-      msg.innerHTML = '<span style="color:#86c564">Merci, c\'est envoyé.</span>';
-      document.getElementById('sig-desc').value = '';
-      setTimeout(window.fermerSignalement, 1400);
-    }).catch(function(e){
-      msg.innerHTML = '<span style="color:#f09595">Envoi impossible : ' + String(e.message).replace(/[<>&]/g,'') + '. Réessayez ou prévenez Olivier.</span>';
-    }).then(function(){ btn.disabled = false; });
-  };
-})();
-</script>
-
 </body></html>
