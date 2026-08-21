@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MYCenter Prep — Automatisation BOM + PnP</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
 <style>
   :root {
@@ -493,6 +494,25 @@
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── Étape 6 : Supports & étiquettes ── */
+  .sup-input-so { background:var(--surface2); border:1px solid var(--border); border-radius:6px; color:var(--text); font-family:var(--mono); font-size:13px; padding:7px 10px; width:180px; }
+  .sup-table { width:100%; border-collapse:collapse; font-size:12px; font-family:var(--mono); }
+  .sup-table th { text-align:left; color:var(--text3); font-weight:500; padding:6px 10px; border-bottom:1px solid var(--border); font-family:var(--sans); }
+  .sup-table td { padding:5px 10px; border-bottom:1px solid var(--border); }
+  .sup-fam-row td { background:var(--surface2); color:var(--blue); font-family:var(--sans); font-weight:500; font-size:11px; letter-spacing:0.5px; }
+  #planche { display:none; }
+  @media print {
+    body > *:not(#planche) { display:none !important; }
+    #planche { display:block !important; background:#fff; color:#000; }
+    @page { size:A4 portrait; margin:8mm; }
+  }
+  .pl-grid { display:flex; flex-wrap:wrap; gap:1.5mm 2mm; }
+  .pl-fam { width:100%; font:600 9pt Arial,sans-serif; color:#000; border-bottom:0.4mm solid #000; padding:1.5mm 0 0.5mm; page-break-after:avoid; }
+  .pl-cell { width:46mm; height:17mm; overflow:hidden; page-break-inside:avoid; text-align:center; }
+  .pl-cell svg { display:block; margin:0 auto; }
+  .pl-ipn { font:6.5pt "Courier New",monospace; color:#000; white-space:nowrap; }
+  .pl-head { font:bold 10pt Arial,sans-serif; color:#000; width:100%; margin-bottom:2mm; }
 </style>
 </head>
 <body>
@@ -517,6 +537,8 @@
   <div class="step" id="step4"><div class="step-dot"></div>Génération fichiers</div>
   <div class="arrow"></div>
   <div class="step" id="step5"><div class="step-dot"></div>Export</div>
+  <div class="arrow"></div>
+  <div class="step" id="step6"><div class="step-dot"></div>Supports &amp; étiquettes</div>
 </div>
 
 <main>
@@ -633,13 +655,46 @@
     <div class="log" id="log"><div class="log-line"><span class="log-time">08:34:17</span><span class="log-ok">Chargement : 45 composants centroïdes</span></div><div class="log-line"><span class="log-time">08:34:17</span><span class="log-ok">BOM Luminovo : 39 désignateurs</span></div><div class="log-line"><span class="log-time">08:34:17</span><span class="log-warn">Jointure : 39 matchés, 6 sans correspondance BOM</span></div><div class="log-line"><span class="log-time">08:34:17</span><span class="log-info">Exclus : 0 composants (NC/fiduciaux/THT)</span></div><div class="log-line"><span class="log-time">08:34:17</span><span class="log-ok">PnP CLI : 45 lignes générées</span></div><div class="log-line"><span class="log-time">08:34:17</span><span class="log-ok">BOM PP : 19 références uniques</span></div></div>
   </div>
 
+
+  <!-- Étape 6 : Supports & étiquettes -->
+  <div class="card" id="card-supports">
+    <div class="card-label">Étape 6</div>
+    <h2>Supports &amp; étiquettes Mycronic</h2>
+    <p>Ré-injecter la <strong>BOM PP finie</strong> (répartition MY200/Expert faite) : les lignes avec <strong>MAG = "MY"</strong> reçoivent un n° de support.</p>
+    <div style="display:flex;gap:14px;align-items:center;margin:10px 0 14px;flex-wrap:wrap">
+      <label style="font-size:12px;color:var(--text2)">SO de l'affaire</label>
+      <input class="sup-input-so" id="sup-so" placeholder="SO2607-XXX" spellcheck="false">
+    </div>
+    <div class="drop-zone" id="drop-sup" ondragover="handleDragOver(event,'drop-sup')" ondragleave="handleDragLeave('drop-sup')" ondrop="supHandleDrop(event)">
+      <input type="file" accept=".ods,.xlsx,.xls" onchange="supHandleFile(event)">
+      <span class="drop-icon">🏷️</span>
+      <div class="drop-hint"><strong>Glisser-déposer</strong> la BOM PP finie (.ods / .xlsx)</div>
+      <div class="filename" id="sup-filename" style="display:none"></div>
+    </div>
+    <div class="stats-row" id="sup-stats" style="display:none">
+      <div class="stat"><div class="stat-val" id="sup-nb-my">0</div><div class="stat-lbl">Lignes MY (supports)</div></div>
+      <div class="stat"><div class="stat-val" id="sup-nb-autres">0</div><div class="stat-lbl">Autres lignes (ignorées)</div></div>
+    </div>
+    <div id="sup-preview" style="display:none;max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;margin:12px 0">
+      <table class="sup-table"><thead><tr><th>IPN</th><th style="width:110px">N° support</th></tr></thead><tbody id="sup-tbody"></tbody></table>
+    </div>
+    <div class="run-section" id="sup-run" style="display:none">
+      <button class="btn-run" id="sup-btn-alloc" onclick="supAllocate()"><i class="ti ti-tag" aria-hidden="true"></i> Attribuer les n° de supports</button>
+      <div style="font-size:12px;color:var(--text3)" id="sup-hint"></div>
+    </div>
+    <div class="download-row" id="sup-actions" style="display:none;margin-top:12px">
+      <button class="btn-dl" onclick="supPrint()"><i class="ti ti-printer" aria-hidden="true"></i> Imprimer la planche A4</button>
+      <button class="btn-dl secondary" onclick="supDownloadSQL()"><i class="ti ti-download" aria-hidden="true"></i> Télécharger le .sql TPSys</button>
+    </div>
+  </div>
+
 </main>
 
 <script>
 /* ---------- version ---------- */
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
-const APP_VERSION = "1.0";
-const APP_DATE = "25/07/2026";
+const APP_VERSION = "2.0";
+const APP_DATE = "21/08/2026";
 document.title = `MYCenter Prep — Automatisation BOM + PnP — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
 
@@ -1661,10 +1716,234 @@ function setStep(n) {
     el.className = 'step' + (i < n ? ' done' : i === n ? ' active' : '');
   }
 }
+
+/* ─── Étape 6 : Supports & étiquettes Mycronic ──────────────────────────────── */
+const SUP_WEBHOOK = 'https://protoprocess.app.n8n.cloud/webhook/supports-allocate';
+const supState = { lignes: [], alloues: null };
+
+function supHandleDrop(e) {
+  e.preventDefault(); handleDragLeave('drop-sup');
+  const f = e.dataTransfer.files[0]; if (f) supProcessFile(f);
+}
+function supHandleFile(e) { const f = e.target.files[0]; if (f) supProcessFile(f); }
+
+function supFamille(ipn) {
+  if (/^C\d/i.test(ipn)) return 'CONDENSATEURS';
+  if (/^R\d/i.test(ipn)) return 'RÉSISTANCES';
+  return 'AUTRES';
+}
+const SUP_FAM_ORDRE = ['CONDENSATEURS', 'RÉSISTANCES', 'AUTRES'];
+
+function supProcessFile(file) {
+  const reader = new FileReader();
+  reader.onload = function (ev) {
+    try {
+      const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
+      let ws = wb.Sheets['BOM PP'] || wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      if (!rows.length) throw new Error('Feuille vide');
+      // Colonne MAG : entête "MAG" si trouvée, sinon colonne G (index 6)
+      let magCol = 6, ipnCol = 1, headerRow = -1;
+      for (let r = 0; r < Math.min(rows.length, 10); r++) {
+        const up = rows[r].map(c => String(c).trim().toUpperCase());
+        const m = up.indexOf('MAG');
+        if (m >= 0) { magCol = m; headerRow = r;
+          const i = up.indexOf('IPN'); if (i >= 0) ipnCol = i; break; }
+      }
+      const seen = new Set(); const my = []; let autres = 0;
+      rows.forEach((row, idx) => {
+        if (idx <= headerRow) return;
+        const ipn = String(row[ipnCol] || '').trim();
+        const mag = String(row[magCol] || '').trim().toUpperCase();
+        if (!ipn) return;
+        if (mag === 'MY') {
+          if (!seen.has(ipn)) { seen.add(ipn); my.push(ipn); }
+        } else { autres++; }
+      });
+      if (!my.length) throw new Error('Aucune ligne MAG = "MY" trouvée (colonne ' + String.fromCharCode(65 + magCol) + ')');
+      my.sort((a, b) => {
+        const fa = SUP_FAM_ORDRE.indexOf(supFamille(a)), fb = SUP_FAM_ORDRE.indexOf(supFamille(b));
+        return fa !== fb ? fa - fb : a.localeCompare(b);
+      });
+      supState.lignes = my; supState.alloues = null;
+      document.getElementById('sup-filename').textContent = file.name;
+      document.getElementById('sup-filename').style.display = '';
+      document.getElementById('drop-sup').classList.add('loaded');
+      document.getElementById('sup-nb-my').textContent = my.length;
+      document.getElementById('sup-nb-autres').textContent = autres;
+      document.getElementById('sup-stats').style.display = '';
+      supRenderTable(null);
+      document.getElementById('sup-preview').style.display = '';
+      document.getElementById('sup-run').style.display = '';
+      document.getElementById('sup-actions').style.display = 'none';
+      document.getElementById('sup-btn-alloc').disabled = false;
+      document.getElementById('sup-hint').textContent = my.length + ' supports à créer — vérifier puis attribuer';
+      log('Étape 6 : ' + my.length + ' références MY chargées depuis ' + file.name, 'ok');
+    } catch (err) {
+      alert('Lecture BOM PP impossible : ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function supRenderTable(alloues) {
+  const tb = document.getElementById('sup-tbody'); tb.innerHTML = '';
+  let lastFam = null;
+  const map = {}; (alloues || []).forEach(a => { map[a.ipn] = a; });
+  supState.lignes.forEach(ipn => {
+    const fam = supFamille(ipn);
+    if (fam !== lastFam) {
+      const tr = document.createElement('tr'); tr.className = 'sup-fam-row';
+      const td = document.createElement('td'); td.colSpan = 2; td.textContent = fam;
+      tr.appendChild(td); tb.appendChild(tr); lastFam = fam;
+    }
+    const tr = document.createElement('tr');
+    const t1 = document.createElement('td'); t1.textContent = ipn;
+    const t2 = document.createElement('td');
+    t2.textContent = map[ipn] ? 'R' + map[ipn].carrierid : '—';
+    if (map[ipn]) t2.style.color = 'var(--green)';
+    tr.appendChild(t1); tr.appendChild(t2); tb.appendChild(tr);
+  });
+}
+
+async function supAllocate() {
+  const so = document.getElementById('sup-so').value.trim();
+  if (!so) { alert('Renseigner le SO de l\'affaire avant d\'attribuer.'); return; }
+  if (!supState.lignes.length) return;
+  if (supState.alloues) { alert('Numéros déjà attribués pour ce chargement — recharger le fichier pour recommencer.'); return; }
+  const btn = document.getElementById('sup-btn-alloc');
+  btn.disabled = true;
+  document.getElementById('sup-hint').textContent = 'Attribution en cours…';
+  try {
+    const resp = await fetch(SUP_WEBHOOK, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ so: so, ipns: supState.lignes })
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    const arr = Array.isArray(data) ? data : [data];
+    if (!arr.length || !arr[0].carrierid) throw new Error('Réponse inattendue du webhook');
+    supState.alloues = arr;
+    supRenderTable(arr);
+    document.getElementById('sup-actions').style.display = '';
+    const first = arr[0].carrierid, last = arr[arr.length - 1].carrierid;
+    document.getElementById('sup-hint').textContent =
+      arr.length + ' supports attribués : R' + first + ' → R' + last;
+    log('Étape 6 : ' + arr.length + ' n° attribués (R' + first + ' → R' + last + ') pour ' + so, 'ok');
+  } catch (err) {
+    btn.disabled = false;
+    document.getElementById('sup-hint').textContent = 'Échec : ' + err.message;
+    alert('Attribution impossible : ' + err.message + '\nVérifier la connexion puis réessayer (aucun numéro n\'est perdu en cas d\'échec réseau après allocation : recharger le fichier et me redemander).');
+  }
+}
+
+function supPrint() {
+  if (!supState.alloues) return;
+  const so = document.getElementById('sup-so').value.trim();
+  const pl = document.getElementById('planche');
+  pl.innerHTML = '';
+  const head = document.createElement('div'); head.className = 'pl-head';
+  head.textContent = so + ' — Supports CMS — R' + supState.alloues[0].carrierid +
+    ' → R' + supState.alloues[supState.alloues.length - 1].carrierid +
+    ' (' + supState.alloues.length + ' étiquettes)';
+  pl.appendChild(head);
+  const grid = document.createElement('div'); grid.className = 'pl-grid';
+  let lastFam = null;
+  supState.alloues.forEach(a => {
+    const fam = supFamille(a.ipn);
+    if (fam !== lastFam) {
+      const d = document.createElement('div'); d.className = 'pl-fam';
+      d.textContent = fam; grid.appendChild(d); lastFam = fam;
+    }
+    const cell = document.createElement('div'); cell.className = 'pl-cell';
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    cell.appendChild(svg);
+    const ipnDiv = document.createElement('div'); ipnDiv.className = 'pl-ipn';
+    ipnDiv.textContent = a.ipn;
+    cell.appendChild(ipnDiv);
+    grid.appendChild(cell);
+    JsBarcode(svg, 'R' + a.carrierid, {
+      format: 'CODE128', displayValue: true,
+      font: 'Courier New', fontSize: 11, textMargin: 0,
+      height: 26, margin: 0
+    });
+    svg.style.width = '30.6mm'; svg.style.height = '11.5mm';
+    svg.removeAttribute('width'); svg.removeAttribute('height');
+    svg.setAttribute('preserveAspectRatio', 'none');
+  });
+  pl.appendChild(grid);
+  window.print();
+}
+
+function supDownloadSQL() {
+  if (!supState.alloues) return;
+  const arr = supState.alloues;
+  const start = arr[0].numero, end = arr[arr.length - 1].numero;
+  const batch = start;
+  const esc = s => String(s).replace(/'/g, "''");
+  const L = [];
+  L.push('-- Supports Mycronic — ' + document.getElementById('sup-so').value.trim());
+  L.push('-- Généré par MYCenter Prep v' + APP_VERSION + ' le ' + new Date().toLocaleString('fr-FR'));
+  L.push('-- ' + arr.length + ' supports : ' + String(start).padStart(6, '0') + ' → ' + String(end).padStart(6, '0'));
+  L.push('SET search_path = mydbcarrdata_10, public;');
+  L.push('BEGIN;');
+  L.push('');
+  L.push('-- Garde anti double-exécution : le compteur TPSys doit être exactement à ' + (start - 1));
+  L.push('DO $g$');
+  L.push('DECLARE cur integer;');
+  L.push('BEGIN');
+  L.push('  SELECT lastsequencenumber INTO cur FROM carrieridsequence WHERE domain = 1;');
+  L.push("  IF cur IS DISTINCT FROM " + (start - 1) + " THEN");
+  L.push("    RAISE EXCEPTION 'Compteur TPSys = % (attendu " + (start - 1) + ") — script déjà passé ou base désynchronisée, rien écrit.', cur;");
+  L.push('  END IF;');
+  L.push('END $g$;');
+  L.push('');
+  L.push('-- Avertissement : composants absents de la base TPSys (supports créés quand même)');
+  L.push('DO $m$');
+  L.push('DECLARE manquants text;');
+  L.push('BEGIN');
+  L.push('  SELECT string_agg(t.ipn, \', \') INTO manquants FROM (VALUES');
+  L.push(arr.map(a => "    ('" + esc(a.ipn) + "')").join(',\n'));
+  L.push('  ) AS t(ipn)');
+  L.push('  WHERE NOT EXISTS (SELECT 1 FROM mydbcompdata_10.component c WHERE c.name = t.ipn);');
+  L.push('  IF manquants IS NOT NULL THEN');
+  L.push("    RAISE WARNING 'Composants absents de la base TPSys, à créer dans MYCenter : %', manquants;");
+  L.push('  END IF;');
+  L.push('END $m$;');
+  L.push('');
+  arr.forEach(a => {
+    const cid = a.carrierid;
+    const ipn = esc(a.ipn);
+    const angle = /^[RC]\d/i.test(a.ipn) ? 90 : 0;
+    L.push("INSERT INTO carrier (modinfo, domain, normalizeduccarrierid, normalizeducmagazinename, id, carrierid, component, magazinename, carriertype, quantity, supplierpartnumber, printed, angle) VALUES (ROW(now(), " + batch + "), 1, '" + cid + "', 'UNLOADED', nextval('carrier_id_seq'), '" + cid + "', '" + ipn + "', 'UNLOADED', 'TAPE_MAG', -1, '" + ipn + "', true::mydbcomndata_10.\"boolean\", " + angle + ");");
+  });
+  L.push('');
+  L.push('UPDATE carrieridsequence SET lastsequencenumber = ' + end + ' WHERE domain = 1;');
+  L.push('');
+  L.push('-- Pas de bande hérité de la fiche Composant (comme le fait l\'UI MYCenter)');
+  L.push('UPDATE mydbcarrdata_10.carrier ca SET step = c.defsteplength');
+  L.push('FROM mydbcompdata_10.component c');
+  L.push("WHERE c.name = ca.component");
+  L.push("  AND ca.carrierid BETWEEN '" + String(start).padStart(6, '0') + "' AND '" + String(end).padStart(6, '0') + "'");
+  L.push('  AND c.defsteplength IS NOT NULL AND c.defsteplength > 0;');
+  L.push('');
+  L.push('COMMIT;');
+  L.push('');
+  L.push('-- Contrôle : supports sans pas (fiche Composant incomplète) — à corriger dans MYCenter');
+  L.push("SELECT carrierid, component AS ipn_sans_pas FROM mydbcarrdata_10.carrier WHERE carrierid BETWEEN '" + String(start).padStart(6, '0') + "' AND '" + String(end).padStart(6, '0') + "' AND (step IS NULL OR step = 0) ORDER BY carrierid;");
+  const blob = new Blob([L.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const aEl = document.createElement('a');
+  aEl.href = URL.createObjectURL(blob);
+  aEl.download = 'insert_supports_' + (document.getElementById('sup-so').value.trim() || 'affaire') + '.sql';
+  aEl.click();
+  URL.revokeObjectURL(aEl.href);
+}
+
 </script>
 
 
 
 
 
+<div id="planche"></div>
 </body></html>
