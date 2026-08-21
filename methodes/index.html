@@ -509,12 +509,12 @@
   }
   .pl-grid { display:grid; grid-template-columns:repeat(3, 64mm); gap:0; }
   .pl-fam { grid-column:1 / -1; font:600 9pt Arial,sans-serif; color:#000; border-bottom:0.4mm solid #000; padding:1.2mm 0 0.4mm; break-after:avoid-page; page-break-after:avoid; }
-  .pl-cell { display:flex; align-items:center; gap:1.2mm; min-height:13mm; overflow:hidden; break-inside:avoid; page-break-inside:avoid; border:0.2mm dashed #aaa; padding:0.6mm; box-sizing:border-box; }
-  .pl-cell svg { flex:0 0 auto; width:30.6mm; height:11.5mm; }
-  .pl-txt { flex:1 1 auto; min-width:0; text-align:left; }
-  .pl-ipn { font:bold 7.5pt "Courier New",monospace; color:#000; word-wrap:break-word; line-height:1.1; }
-  .pl-qty { font:bold 7.5pt Arial,sans-serif; color:#000; }
-  .pl-des { font:5pt Arial,sans-serif; color:#000; line-height:1.2; word-wrap:break-word; margin-top:0.3mm; }
+  .pl-cell { min-height:20mm; overflow:hidden; break-inside:avoid; page-break-inside:avoid; text-align:center; border:0.2mm dashed #aaa; padding:1mm 1mm 1.2mm; box-sizing:border-box; }
+  .pl-cell svg { display:block; margin:0 auto; width:30.6mm; height:11.5mm; }
+  .pl-txt { min-width:0; }
+  .pl-ipn { font:bold 8.5pt "Courier New",monospace; color:#000; white-space:nowrap; }
+  .pl-qty { font:bold 8.5pt Arial,sans-serif; color:#000; }
+  .pl-des { font:5.5pt Arial,sans-serif; color:#000; line-height:1.25; word-wrap:break-word; margin-top:0.4mm; }
   .pl-head { font:bold 10pt Arial,sans-serif; color:#000; width:100%; margin-bottom:2mm; }
 </style>
 </head>
@@ -696,7 +696,7 @@
 <script>
 /* ---------- version ---------- */
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
-const APP_VERSION = "3.1";
+const APP_VERSION = "3.2";
 const APP_DATE = "21/08/2026";
 document.title = `MYCenter Prep — Automatisation BOM + PnP — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
