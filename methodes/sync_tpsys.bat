@@ -30,7 +30,7 @@ if errorlevel 1 ( echo [ERREUR] Copie SSH impossible - verifier reseau / mot de 
 
 echo.
 echo --- Execution ---
-ssh -o StrictHostKeyChecking=accept-new %HOST% "psql -U postgres -d mydata_common_db -f /home/tpsys/%SQLFILE%" < CON
+ssh -o StrictHostKeyChecking=accept-new %HOST% "psql -U postgres -d mydata_common_db -f '/home/tpsys/%SQLFILE%'" < CON
 echo.
 echo --- Termine. Attendu : BEGIN, DO, N x INSERT 0 1, UPDATE, COMMIT ---
 echo --- Si EXCEPTION compteur : script deja passe ou base desynchronisee, rien ecrit ---
