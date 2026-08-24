@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<!-- saved from url=(0060)https://protoprocess.github.io/methodes-production/methodes/ -->
-<html lang="fr"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MYCenter Prep — Automatisation BOM + PnP — v3.0 — 21/08/2026</title>
-<script src="./MYCenter Prep — Automatisation BOM + PnP — v3.0 — 21_08_2026_files/xlsx.full.min.js.téléchargement"></script>
-<script src="./MYCenter Prep — Automatisation BOM + PnP — v3.0 — 21_08_2026_files/JsBarcode.all.min.js.téléchargement"></script>
-<link rel="stylesheet" href="./MYCenter Prep — Automatisation BOM + PnP — v3.0 — 21_08_2026_files/tabler-icons.min.css">
+<title>MYCenter Prep — Automatisation BOM + PnP</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
 <style>
   :root {
     --bg: #0a0c12;
@@ -507,10 +507,11 @@
     #planche { display:block !important; background:#fff; color:#000; }
     @page { size:A4 portrait; margin:8mm; }
   }
-  .pl-grid { display:flex; flex-wrap:wrap; gap:1.5mm 2mm; }
-  .pl-fam { width:100%; font:600 9pt Arial,sans-serif; color:#000; border-bottom:0.4mm solid #000; padding:1.5mm 0 0.5mm; page-break-after:avoid; }
-  .pl-cell { width:62mm; min-height:20mm; overflow:hidden; page-break-inside:avoid; text-align:center; border:0.2mm dashed #aaa; padding:1mm 1mm 1.2mm; box-sizing:border-box; }
-  .pl-cell svg { display:block; margin:0 auto; }
+  .pl-grid { display:grid; grid-template-columns:repeat(3, 64mm); gap:0; }
+  .pl-fam { grid-column:1 / -1; font:600 9pt Arial,sans-serif; color:#000; border-bottom:0.4mm solid #000; padding:1.2mm 0 0.4mm; break-after:avoid-page; page-break-after:avoid; }
+  .pl-cell { min-height:20mm; overflow:hidden; break-inside:avoid; page-break-inside:avoid; text-align:center; border:0.2mm dashed #aaa; padding:1mm 1mm 1.2mm; box-sizing:border-box; }
+  .pl-cell svg { display:block; margin:0 auto; width:30.6mm; height:11.5mm; }
+  .pl-txt { min-width:0; }
   .pl-ipn { font:bold 8.5pt "Courier New",monospace; color:#000; white-space:nowrap; }
   .pl-qty { font:bold 8.5pt Arial,sans-serif; color:#000; }
   .pl-des { font:5.5pt Arial,sans-serif; color:#000; line-height:1.25; word-wrap:break-word; margin-top:0.4mm; }
@@ -521,12 +522,12 @@
 
 <header>
   <div class="logo">
-    <img src="./MYCenter Prep — Automatisation BOM + PnP — v3.0 — 21_08_2026_files/picto-pp.png" alt="Proto Process" width="24" height="24" style="object-fit:contain" onerror="this.style.display=&#39;none&#39;">
+    <img src="../shared/picto-pp.png" alt="Proto Process" width="24" height="24" style="object-fit:contain" onerror="this.style.display='none'">
     <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">MYCenter Prep</span></span>
   </div>
   <span class="subtitle">Automatisation BOM + Centroïdes → Import MYCenter</span>
   <div style="flex:1"></div>
-  <span class="hdr-note" id="hdr-version">v3.0 — 21/08/2026</span>
+  <span class="hdr-note" id="hdr-version"></span>
 </header>
 
 <div class="pipeline">
@@ -551,11 +552,11 @@
     <div class="gsheet-status">
       <div class="gsheet-dot ok" id="gsheet-dot"></div>
       <span class="gsheet-label">Base clients :</span>
-      <span class="gsheet-info" id="gsheet-info">27 clients (données intégrées)</span>
+      <span class="gsheet-info" id="gsheet-info">24 clients (données intégrées)</span>
     </div>
-    <div id="gsheet-badges" style="display:flex;gap:8px"><div class="gsheet-client-badge">SEFRAM</div><div class="gsheet-mpn-badge">MPN STRICT</div></div>
+    <div id="gsheet-badges" style="display:flex;gap:8px"><div class="gsheet-client-badge">MERIO</div></div>
     <button onclick="loadClientDB()" title="Rafraîchir depuis GSheet" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text3);cursor:pointer;padding:3px 8px;font-size:13px">↻</button>
-    <select id="client-select" onchange="selectClientManual(this.value)" style="background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:11px;padding:3px 8px;cursor:pointer"><option value="">— Sélectionner client —</option><option value="AMG">AMG</option><option value="AMG MICROWAVE">AMG MICROWAVE</option><option value="ANNECY ELEC">ANNECY ELEC ★</option><option value="ARCEL">ARCEL</option><option value="CEA CADARACHE">CEA CADARACHE</option><option value="CERN">CERN</option><option value="CORDOUAN">CORDOUAN</option><option value="HORIBA">HORIBA</option><option value="ILL">ILL</option><option value="INSAVALOR">INSAVALOR</option><option value="LAPP Annecy">LAPP Annecy</option><option value="LEM (CH)">LEM (CH)</option><option value="LEM TECH BULGARIE">LEM TECH BULGARIE</option><option value="LEM TECH FR">LEM TECH FR</option><option value="LILACO">LILACO</option><option value="LOCATIS">LOCATIS ★</option><option value="MERIO">MERIO</option><option value="MERIO">MERIO</option><option value="MICRO BEAM">MICRO BEAM</option><option value="MINISTERE DES ARMEES">MINISTERE DES ARMEES</option><option value="PFEIFFER">PFEIFFER</option><option value="Proto Process">Proto Process</option><option value="RTSYS">RTSYS</option><option value="SEFRAM">SEFRAM ★</option><option value="SICPA">SICPA</option><option value="SYNOPSIS">SYNOPSIS</option><option value="VIAVI">VIAVI ★</option></select>
+    <select id="client-select" onchange="selectClientManual(this.value)" style="background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:11px;padding:3px 8px;cursor:pointer"><option value="">— Sélectionner client —</option><option value="AMG">AMG</option><option value="ANNECY ELEC">ANNECY ELEC ★</option><option value="ARCEL">ARCEL</option><option value="CEA CADARACHE">CEA CADARACHE</option><option value="CERN">CERN</option><option value="CORDOUAN">CORDOUAN</option><option value="HORIBA">HORIBA</option><option value="ILL">ILL</option><option value="INSAVALOR">INSAVALOR</option><option value="LAPP Annecy">LAPP Annecy</option><option value="LEM (CH)">LEM (CH)</option><option value="LEM TECH FR">LEM TECH FR</option><option value="LEM TECH BULGARIE">LEM TECH BULGARIE</option><option value="LOCATIS">LOCATIS ★</option><option value="MERIO">MERIO</option><option value="MICRO BEAM">MICRO BEAM</option><option value="MINISTERE DES ARMEES">MINISTERE DES ARMEES</option><option value="PFEIFFER">PFEIFFER</option><option value="Proto Process">Proto Process</option><option value="RTSYS">RTSYS</option><option value="SEFRAM">SEFRAM ★</option><option value="SICPA">SICPA</option><option value="SYNOPSIS">SYNOPSIS</option><option value="VIAVI">VIAVI ★</option></select>
   </div>
 
   <!-- Fichier BOM Luminovo -->
@@ -568,11 +569,11 @@
       <span class="drop-icon">📋</span>
       <div class="drop-hint"><strong>Glisser-déposer</strong> ou cliquer pour sélectionner</div>
       <div class="drop-hint" style="margin-top:4px">Formats acceptés : .xlsx, .ods, .csv</div>
-      <div class="filename" id="name-lumi">BOM_codifiee_SEFRAM-2026-08-24.xlsx</div>
+      <div class="filename" id="name-lumi">BOM_codifiee-MERIO_2026-06-11 (1).xlsx</div>
     </div>
     <div class="stats-row" id="stats-lumi">
-      <div class="stat"><div class="stat-val" id="lumi-refs">131</div><div class="stat-lbl">Références</div></div>
-      <div class="stat"><div class="stat-val" id="lumi-desig">746</div><div class="stat-lbl">Désignateurs</div></div>
+      <div class="stat"><div class="stat-val" id="lumi-refs">81</div><div class="stat-lbl">Références</div></div>
+      <div class="stat"><div class="stat-val" id="lumi-desig">254</div><div class="stat-lbl">Désignateurs</div></div>
     </div>
   </div>
 
@@ -586,11 +587,11 @@
       <span class="drop-icon">📍</span>
       <div class="drop-hint"><strong>Glisser-déposer</strong> ou cliquer pour sélectionner</div>
       <div class="drop-hint" style="margin-top:4px">Format : .csv (séparateur tabulation)</div>
-      <div class="filename" id="name-cmp">7SIGM0701-D0-PICK&amp;PLACE.rep</div>
+      <div class="filename" id="name-cmp">Pick___Place_2738-03__2738_V01_.csv</div>
     </div>
     <div class="stats-row" id="stats-cmp">
-      <div class="stat"><div class="stat-val" id="cmp-total">793</div><div class="stat-lbl">Composants</div></div>
-      <div class="stat"><div class="stat-val" id="cmp-smt">0</div><div class="stat-lbl">SMT (TOP+BOT)</div></div>
+      <div class="stat"><div class="stat-val" id="cmp-total">45</div><div class="stat-lbl">Composants</div></div>
+      <div class="stat"><div class="stat-val" id="cmp-smt">45</div><div class="stat-lbl">SMT (TOP+BOT)</div></div>
     </div>
   </div>
 
@@ -667,7 +668,7 @@
       <label style="font-size:12px;color:var(--text2)">SO de l'affaire</label>
       <input class="sup-input-so" id="sup-so" placeholder="SO2607-XXX" spellcheck="false">
     </div>
-    <div class="drop-zone" id="drop-sup" ondragover="handleDragOver(event,&#39;drop-sup&#39;)" ondragleave="handleDragLeave(&#39;drop-sup&#39;)" ondrop="supHandleDrop(event)">
+    <div class="drop-zone" id="drop-sup" ondragover="handleDragOver(event,'drop-sup')" ondragleave="handleDragLeave('drop-sup')" ondrop="supHandleDrop(event)">
       <input type="file" accept=".ods,.xlsx,.xls" onchange="supHandleFile(event)">
       <span class="drop-icon">🏷️</span>
       <div class="drop-hint"><strong>Glisser-déposer</strong> la BOM PP finie (.ods / .xlsx)</div>
@@ -695,7 +696,7 @@
 <script>
 /* ---------- version ---------- */
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
-const APP_VERSION = "3.1"; // v3.1 : Side A→TOP (format eCADSTAR, client SEFRAM)
+const APP_VERSION = "3.3"; // v3.3 : Side A→TOP (format eCADSTAR, client SEFRAM)
 const APP_DATE = "24/08/2026";
 document.title = `MYCenter Prep — Automatisation BOM + PnP — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -1882,6 +1883,7 @@ function supPrint() {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     cell.appendChild(svg);
     const meta = supState.lignes.find(l => l.ipn === a.ipn) || { qty: 0, des: [] };
+    const txt = document.createElement('div'); txt.className = 'pl-txt';
     const ipnDiv = document.createElement('div'); ipnDiv.className = 'pl-ipn';
     ipnDiv.textContent = a.ipn;
     if (meta.qty) {
@@ -1889,20 +1891,20 @@ function supPrint() {
       q.textContent = '  \u00d7' + meta.qty;
       ipnDiv.appendChild(q);
     }
-    cell.appendChild(ipnDiv);
+    txt.appendChild(ipnDiv);
     const desTxt = (meta.des || []).join(', ');
     if (desTxt) {
       const d = document.createElement('div'); d.className = 'pl-des';
       d.textContent = desTxt;
-      cell.appendChild(d);
+      txt.appendChild(d);
     }
+    cell.appendChild(txt);
     grid.appendChild(cell);
     JsBarcode(svg, 'R' + a.carrierid, {
       format: 'CODE128', displayValue: true,
       font: 'Courier New', fontSize: 11, textMargin: 0,
       height: 26, margin: 0
     });
-    svg.style.width = '30.6mm'; svg.style.height = '11.5mm';
     svg.removeAttribute('width'); svg.removeAttribute('height');
     svg.setAttribute('preserveAspectRatio', 'none');
   });
@@ -1981,5 +1983,4 @@ function supDownloadSQL() {
 
 
 <div id="planche"></div>
-
 </body></html>
