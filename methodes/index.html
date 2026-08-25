@@ -696,8 +696,8 @@
 <script>
 /* ---------- version ---------- */
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
-const APP_VERSION = "3.3"; // v3.3 : Side A→TOP (format eCADSTAR, client SEFRAM)
-const APP_DATE = "24/08/2026";
+const APP_VERSION = "3.4"; // v3.3 : Side A→TOP (format eCADSTAR, client SEFRAM)
+const APP_DATE = "25/08/2026";
 document.title = `MYCenter Prep — Automatisation BOM + PnP — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
 
@@ -1963,6 +1963,15 @@ function supDownloadSQL() {
   L.push("WHERE c.name = ca.component");
   L.push("  AND ca.carrierid BETWEEN '" + String(start).padStart(6, '0') + "' AND '" + String(end).padStart(6, '0') + "'");
   L.push('  AND c.defsteplength IS NOT NULL AND c.defsteplength > 0;');
+  L.push('');
+  L.push('-- Pas par defaut selon le boitier codifie en suffixe IPN (regle atelier : 0201/0402 = 2 mm ; 0603/0805/1206 = 4 mm)');
+  L.push('-- Ne touche que les supports encore sans pas apres heritage des fiches');
+  L.push('UPDATE mydbcarrdata_10.carrier SET step = 2000');
+  L.push("WHERE carrierid BETWEEN '" + String(start).padStart(6, '0') + "' AND '" + String(end).padStart(6, '0') + "'");
+  L.push("  AND (step IS NULL OR step = 0) AND (component LIKE '%-0201%' OR component LIKE '%-0402%');");
+  L.push('UPDATE mydbcarrdata_10.carrier SET step = 4000');
+  L.push("WHERE carrierid BETWEEN '" + String(start).padStart(6, '0') + "' AND '" + String(end).padStart(6, '0') + "'");
+  L.push("  AND (step IS NULL OR step = 0) AND (component LIKE '%-0603%' OR component LIKE '%-0805%' OR component LIKE '%-1206%');");
   L.push('');
   L.push('COMMIT;');
   L.push('');
