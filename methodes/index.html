@@ -696,8 +696,8 @@
 <script>
 /* ---------- version ---------- */
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
-const APP_VERSION = "3.4"; // v3.3 : Side A→TOP (format eCADSTAR, client SEFRAM)
-const APP_DATE = "25/08/2026";
+const APP_VERSION = "3.5"; // v3.5 : en-tête Altium .txt fusionné → largeur fixe (client LOCATIS)
+const APP_DATE = "24/08/2026";
 document.title = `MYCenter Prep — Automatisation BOM + PnP — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
 
@@ -1146,12 +1146,21 @@ function parseCMP(text, filename) {
         return cols;
       }
 
-      function isFixedWidth(headerLine, sep) {
+      function isFixedWidth(headerLine, sep, dataLine) {
         // Largeur fixe si le header splitté donne moins de 5 colonnes
         // mais contient plus de 5 mots-clés
         const splitCols = splitLine(headerLine, sep).length;
         const wordCount  = (headerLine.match(/\S+/g)||[]).length;
-        return splitCols < 5 && wordCount >= 5;
+        if (splitCols < 5 && wordCount >= 5) return true;
+        // Altium .txt aligné espaces (LOCATIS) : des en-têtes à 1 espace interne
+        // ("Designator Layer", "Center-X(mil) Center-Y(mil) Rotation Description")
+        // fusionnent au split 2+ espaces → en-tête plus court que les données.
+        // Le compte de MOTS de l'en-tête, lui, colle au nombre de colonnes réelles.
+        if (sep === 'spaces' && dataLine) {
+          const dataCols = splitLine(dataLine, sep).length;
+          if (splitCols < dataCols && wordCount >= dataCols - 1) return true;
+        }
+        return false;
       }
 
       // Trouver l'en-tête : ligne qui matche HDR ET suivie de données
@@ -1269,7 +1278,9 @@ function parseCMP(text, filename) {
         return;
       }
 
-      const fixedWidth = isFixedWidth(lines[headerIdx], sep);
+      // Première ligne de données après l'en-tête (pour comparer les comptes de colonnes)
+      const firstDataLine = lines.slice(headerIdx+1).find(l => l.trim() && !/^[=\-]{4,}/.test(l.trim())) || '';
+      const fixedWidth = isFixedWidth(lines[headerIdx], sep, firstDataLine);
       const header = fixedWidth
         ? (lines[headerIdx].match(/\S+/g)||[]).map(c => c.toLowerCase().replace(/[^a-z0-9]/g,' ').trim())
         : splitLine(lines[headerIdx], sep).map(c => c.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
