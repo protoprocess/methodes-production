@@ -696,7 +696,7 @@
 <script>
 /* ---------- version ---------- */
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
-const APP_VERSION = "3.6"; // v3.6 : étape 6 Supports — reconnaissance entête IPN "Réf. perso." + erreur bloquante si entête IPN introuvable
+const APP_VERSION = "3.7"; // v3.7 : correctif v3.6 — l'accent de "Réf. perso." était perdu par le filtre de normalisation, empêchant la reconnaissance de la colonne
 const APP_DATE = "02/09/2026";
 document.title = `MYCenter Prep — Automatisation BOM + PnP — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -1777,10 +1777,11 @@ function supProcessFile(file) {
         const up = rows[r].map(c => String(c).trim().toUpperCase());
         const m = up.indexOf('MAG');
         if (m >= 0) { magCol = m; headerRow = r;
+          const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z]/g, '');
           const i = up.findIndex(h =>
             h === 'IPN' ||
             h.indexOf('INTERNAL PART') >= 0 ||
-            h.replace(/[^A-Z]/g, '').indexOf('REFPERSO') >= 0
+            norm(h).indexOf('REFPERSO') >= 0
           ); if (i >= 0) ipnCol = i;
           const d = up.findIndex(h => h.indexOf('DESIGNATOR') >= 0); if (d >= 0) desCol = d;
           const q = up.findIndex(h => h === 'QTY' || h === 'QTE' || h === 'QT\u00c9'); if (q >= 0) qtyCol = q;
