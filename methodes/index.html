@@ -696,8 +696,8 @@
 <script>
 /* ---------- version ---------- */
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
-const APP_VERSION = "3.5"; // v3.5 : en-tête Altium .txt fusionné → largeur fixe (client LOCATIS)
-const APP_DATE = "24/08/2026";
+const APP_VERSION = "3.6"; // v3.6 : étape 6 Supports — reconnaissance entête IPN "Réf. perso." + erreur bloquante si entête IPN introuvable
+const APP_DATE = "02/09/2026";
 document.title = `MYCenter Prep — Automatisation BOM + PnP — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
 
@@ -1770,15 +1770,24 @@ function supProcessFile(file) {
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
       if (!rows.length) throw new Error('Feuille vide');
       // Colonne MAG : entête "MAG" si trouvée, sinon colonne G (index 6)
-      let magCol = 6, ipnCol = 1, desCol = 0, qtyCol = -1, headerRow = -1;
+      // Colonne IPN : entête "IPN" / "Internal part number" / "Réf. perso." (alias connus des BOM PP)
+      // Aucun repli silencieux — si aucun alias trouvé, on bloque avec une erreur explicite (voir plus bas)
+      let magCol = 6, ipnCol = -1, desCol = 0, qtyCol = -1, headerRow = -1;
       for (let r = 0; r < Math.min(rows.length, 10); r++) {
         const up = rows[r].map(c => String(c).trim().toUpperCase());
         const m = up.indexOf('MAG');
         if (m >= 0) { magCol = m; headerRow = r;
-          const i = up.findIndex(h => h === 'IPN' || h.indexOf('INTERNAL PART') >= 0); if (i >= 0) ipnCol = i;
+          const i = up.findIndex(h =>
+            h === 'IPN' ||
+            h.indexOf('INTERNAL PART') >= 0 ||
+            h.replace(/[^A-Z]/g, '').indexOf('REFPERSO') >= 0
+          ); if (i >= 0) ipnCol = i;
           const d = up.findIndex(h => h.indexOf('DESIGNATOR') >= 0); if (d >= 0) desCol = d;
           const q = up.findIndex(h => h === 'QTY' || h === 'QTE' || h === 'QT\u00c9'); if (q >= 0) qtyCol = q;
           break; }
+      }
+      if (ipnCol < 0) {
+        throw new Error('Colonne IPN introuvable dans l\'entête (attendu : "IPN", "Internal part number" ou "Réf. perso."). Vérifier le fichier BOM PP.');
       }
       const seen = new Map(); let autres = 0;
       rows.forEach((row, idx) => {
