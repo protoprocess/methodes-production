@@ -696,7 +696,7 @@
 <script>
 /* ---------- version ---------- */
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
-const APP_VERSION = "3.7"; // v3.7 : correctif v3.6 — l'accent de "Réf. perso." était perdu par le filtre de normalisation, empêchant la reconnaissance de la colonne
+const APP_VERSION = "3.8"; // v3.8 : étape 6 Supports — "MY PER" traité comme "MY" (composant chargé machine, nécessite un support)
 const APP_DATE = "02/09/2026";
 document.title = `MYCenter Prep — Automatisation BOM + PnP — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -1796,7 +1796,7 @@ function supProcessFile(file) {
         const ipn = String(row[ipnCol] || '').trim();
         const mag = String(row[magCol] || '').trim().toUpperCase();
         if (!ipn) return;
-        if (mag === 'MY') {
+        if (mag === 'MY' || mag === 'MY PER') {
           const qty = qtyCol >= 0 ? (parseFloat(String(row[qtyCol] || '').replace(',', '.')) || 0) : 0;
           const des = String(row[desCol] || '').trim();
           if (seen.has(ipn)) { const o = seen.get(ipn); o.qty += qty; if (des) o.des.push(des); }
