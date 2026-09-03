@@ -696,8 +696,8 @@
 <script>
 /* ---------- version ---------- */
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
-const APP_VERSION = "3.8"; // v3.8 : étape 6 Supports — "MY PER" traité comme "MY" (composant chargé machine, nécessite un support)
-const APP_DATE = "02/09/2026";
+const APP_VERSION = "3.9"; // v3.9 : filet stratégie 1→auto + face Swapped (*)  — CADSTAR, client Pfeiffer Vacuum
+const APP_DATE = "03/09/2026";
 document.title = `MYCenter Prep — Automatisation BOM + PnP — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
 
@@ -948,7 +948,8 @@ function parseCMP(text, filename) {
     function resolveFace(raw, isMirror) {
       if (!isMirror) return normFace(raw) || '';
       const s = (raw||'').trim().toUpperCase().replace(/[\s_\-\.\"]/g,'');
-      if (s.startsWith('BOT')||s==='YES'||s==='1'||s==='TRUE'||s==='B') return 'BOT';
+      // '*' = convention CADSTAR "Swapped" (composant retourné, client Pfeiffer Vacuum)
+      if (s.startsWith('BOT')||s==='YES'||s==='1'||s==='TRUE'||s==='B'||s.startsWith('*')) return 'BOT';
       return 'TOP';
     }
 
@@ -1127,8 +1128,12 @@ function parseCMP(text, filename) {
 
     // ════════════════════════════════════════════════════════════════════════
     // STRATÉGIE 2 : Tout autre format — détection automatique universelle
+    // Filet : s'exécute aussi quand la stratégie 1 a cru reconnaître MYCenter
+    // mais n'a rien produit (ex. rapports CADSTAR "Component List Report"
+    // alignés espaces, client Pfeiffer Vacuum — signature identique, zéro TAB)
     // ════════════════════════════════════════════════════════════════════════
-    } else {
+    }
+    if (rows.length === 0) {
       const HDR = /refdes|reference|designator|component|center.x|pos.x|mid.x|symbol.x|center-x|rotation|layer|side|face/i;
 
       // Détecter format largeur fixe : extraire colonnes par positions dans l'en-tête
@@ -1299,12 +1304,12 @@ function parseCMP(text, filename) {
       const iRot  = findCol('rotation','rotate','angle','rot','orientation');
       const iFace = findCol('layer','side','face','tb','top bot','board side','pcb side');
       const iFaceFb = iFace<0
-        ? header.findIndex(h => h.includes('mirror')||h.includes('flip')||h.includes('botirror'))
+        ? header.findIndex(h => h.includes('mirror')||h.includes('flip')||h.includes('botirror')||h.includes('swap'))
         : -1;
       const iFaceEff = iFace>=0 ? iFace : iFaceFb;
       const mirrorColName = iFaceEff>=0 ? header[iFaceEff] : '';
       const isMirror = iFace<0 && iFaceFb>=0 &&
-        (mirrorColName.includes('mirror')||mirrorColName.includes('flip')||mirrorColName.includes('botirror'));
+        (mirrorColName.includes('mirror')||mirrorColName.includes('flip')||mirrorColName.includes('botirror')||mirrorColName.includes('swap'));
 
       // Guess X/Y/Face par contenu si pas trouvés par nom
       function guessByContent() {
