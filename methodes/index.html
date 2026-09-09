@@ -3027,7 +3027,7 @@ window.aoi_runConvert = runConvert;
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
         type: SIG_TYPE, description: desc, auteur: auteur,
-        appli: APPLI + ' / ' + (window.PP_ONGLET === 'pane-exp' ? 'Expert' : window.PP_ONGLET === 'pane-aoi' ? 'AOI' : 'MYCenter Prep'), version: '4.2'
+        appli: APPLI + ' / ' + (window.PP_ONGLET === 'pane-exp' ? 'Expert' : window.PP_ONGLET === 'pane-aoi' ? 'AOI' : 'MYCenter Prep'), version: '4.3'
       })
     }).then(function(r){
       if(!r.ok) throw new Error('HTTP ' + r.status);
@@ -3043,7 +3043,7 @@ window.aoi_runConvert = runConvert;
 <script>
 /* ---- onglets Methodes v4.0 ---- */
 (function(){
-  var APP_VERSION_G = "4.2", APP_DATE_G = "09/09/2026";
+  var APP_VERSION_G = "4.3", APP_DATE_G = "09/09/2026";
   document.title = "MYCenter Prep \u2014 v" + APP_VERSION_G + " \u2014 " + APP_DATE_G;
   function poser(){
     var h = document.getElementById('hdr-version');
@@ -3057,10 +3057,14 @@ window.aoi_runConvert = runConvert;
         var panes = document.querySelectorAll('.pane');
         for (var k=0;k<panes.length;k++) panes[k].classList.toggle('active', panes[k].id===cible);
         window.PP_ONGLET = cible;
+        var sb = document.getElementById('sig-btn');
+        if (sb) sb.style.display = (cible === 'pane-aoi') ? '' : 'none';
         try { window.scrollTo(0,0); } catch(e){}
       });
     }
     window.PP_ONGLET = 'pane-mcp';
+    var sb0 = document.getElementById('sig-btn');
+    if (sb0) sb0.style.display = 'none';
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', poser);
   else poser();
