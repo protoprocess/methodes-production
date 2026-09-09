@@ -517,18 +517,454 @@
   .pl-des { font:5.5pt Arial,sans-serif; color:#000; line-height:1.25; word-wrap:break-word; margin-top:0.4mm; }
   .pl-head { font:bold 10pt Arial,sans-serif; color:#000; width:100%; margin-bottom:2mm; }
 </style>
+<style>
+/* ---- onglets Methodes v4.0 ---- */
+.tabs { display:flex; gap:0; background:var(--surface2); border-bottom:1px solid var(--border);
+        padding:0 18px; position:sticky; top:0; z-index:50; }
+.tabs button { padding:11px 18px; background:none; border:none; border-bottom:2px solid transparent;
+        color:var(--text3); font-size:12.5px; font-family:inherit; cursor:pointer; font-weight:500; }
+.tabs button:hover { color:var(--text2); }
+.tabs button.active { color:var(--blue); border-bottom-color:var(--blue); }
+.pane { display:none; }
+.pane.active { display:block; }
+</style>
+<style>
+/* signalement : bouton flottant, module commun (chantier 72) */
+#sig-btn{position:fixed;right:18px;bottom:18px;z-index:60;display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border-radius:22px;background:var(--surface,#1a2030);color:var(--text2,#94a3b8);border:1px solid var(--border2,#333d55);box-shadow:0 4px 14px rgba(0,0,0,.4);cursor:pointer;font-size:12px;font-family:inherit}
+#sig-btn:hover{color:var(--blue,#F07B1F);border-color:var(--blue,#F07B1F)}
+#sig-fond{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:18px}
+#sig-fond.hidden{display:none}
+#sig-boite{background:var(--surface,#1a2030);border:1px solid var(--border2,#333d55);border-radius:10px;width:min(94vw,560px);max-height:90vh;overflow:auto;padding:18px;color:var(--text,#e2e8f0);font-size:13px}
+#sig-boite h2{font-size:15px}
+.sig-t{display:flex;gap:6px;margin:0 0 11px;flex-wrap:wrap}
+.sig-t button{flex:1;min-width:120px;padding:8px 10px;border-radius:6px;background:transparent;color:var(--text2,#94a3b8);border:1px solid var(--border,#262e42);font-size:12px;cursor:pointer;font-family:inherit}
+.sig-t button.on{background:var(--blue,#F07B1F);color:#fff;border-color:transparent;font-weight:500}
+#sig-boite label.f{display:block;font-size:11.5px;color:var(--text2,#94a3b8);margin:0 0 4px}
+#sig-boite input.f,#sig-boite textarea.f{width:100%;box-sizing:border-box;background:var(--surface2,#161b27);color:var(--text,#e2e8f0);border:1px solid var(--border,#262e42);border-radius:6px;padding:7px 9px;font-size:12.5px;font-family:inherit;margin-bottom:10px}
+#sig-boite .btn-ann{padding:6px 13px;background:transparent;color:var(--text2,#94a3b8);border:1px solid var(--border,#262e42);border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit}
+#sig-boite .btn-env{padding:6px 13px;background:var(--blue,#F07B1F);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit}
+</style>
+<style>/* ===== AOI (portee limitee a son panneau) ===== */
+#pane-aoi *{ box-sizing: border-box; margin: 0; padding: 0; }
+#pane-aoi{
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+#pane-aoi header{
+    border-bottom: 1px solid var(--border);
+    padding: 20px 40px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+#pane-aoi .logo{ display:flex; align-items:center; gap:9px; }
+#pane-aoi .logo-text{ display:flex; align-items:center; gap:0; font-size:13px; font-weight:500; }
+#pane-aoi .logo-text .lt{ color:#fff; }
+#pane-aoi .logo-text .ls{ color:#444; margin:0 3px; }
+#pane-aoi .logo-text .lo{ color:var(--blue); }
+#pane-aoi .hdr-note{ font-size: 11px; color: var(--text3); font-family: var(--mono); }
+#pane-aoi header h1{ font-size: 15px; font-weight: 600; }
+#pane-aoi header span.subtitle{ font-size: 13px; color: var(--text3); font-family: var(--mono); }
+#pane-aoi main{
+    flex: 1;
+    padding: 32px 40px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    max-width: min(96vw, 1400px);
+    width: 100%;
+    margin: 0 auto;
+  }
+#pane-aoi .card{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+  }
+#pane-aoi .card-label{
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+#pane-aoi .card h2{ font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+#pane-aoi .card p{ font-size: 12px; color: var(--text3); margin-bottom: 18px; line-height: 1.5; }
+#pane-aoi .drop-zone{
+    border: 1.5px dashed var(--border);
+    border-radius: 8px;
+    padding: 32px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+#pane-aoi .drop-zone:hover, #pane-aoi .drop-zone.dragover{
+    border-color: var(--blue);
+    background: rgba(240, 123, 31, 0.04);
+  }
+#pane-aoi .drop-zone.loaded{
+    border-color: var(--blue);
+    background: rgba(240, 123, 31, 0.05);
+  }
+#pane-aoi .drop-zone input[type=file]{
+    position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  }
+#pane-aoi .drop-icon{ font-size: 28px; margin-bottom: 10px; display: block; }
+#pane-aoi .drop-hint{ font-size: 12px; color: var(--text3); }
+#pane-aoi .drop-hint strong{ color: var(--text); }
+#pane-aoi .filename{ font-family: var(--mono); font-size: 12px; color: var(--blue); margin-top: 8px; }
+#pane-aoi /* Règles de transformation */
+  .rules-card{ grid-column: span 2; }
+#pane-aoi .rules-grid{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 4px;
+  }
+#pane-aoi .rule{
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    border: 1px solid var(--border);
+  }
+#pane-aoi .rule-col{
+    font-size: 11px;
+    color: var(--text3);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+#pane-aoi .rule-arrow{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+#pane-aoi .rule-from{ color: var(--text3); text-decoration: line-through; font-size: 11px; }
+#pane-aoi .rule-to{ color: var(--blue); font-size: 12px; font-weight: 600; }
+#pane-aoi .rule-arrow span{ color: var(--text3); }
+#pane-aoi /* Bouton run */
+  .run-section{ grid-column: span 2; display: flex; align-items: center; gap: 16px; }
+#pane-aoi .btn-run{
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 13px 32px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+#pane-aoi .btn-run:disabled{ background: var(--surface2); color: var(--text3); cursor: not-allowed; }
+#pane-aoi .btn-run:not(:disabled):hover{ filter: brightness(1.12); transform: translateY(-1px); }
+#pane-aoi /* Résultats */
+  .results-card{ grid-column: span 2; }
+#pane-aoi .stats-row{ display: flex; gap: 12px; margin-bottom: 20px; }
+#pane-aoi .stat{
+    flex: 1;
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-family: var(--mono);
+  }
+#pane-aoi .stat-val{ font-size: 20px; font-weight: 600; color: var(--blue); }
+#pane-aoi .stat-lbl{ font-size: 11px; color: var(--text3); margin-top: 2px; }
+#pane-aoi .btn-dl{
+    border: 1.5px solid var(--blue);
+    background: transparent;
+    color: var(--blue);
+    border-radius: 7px;
+    padding: 10px 22px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+#pane-aoi .btn-dl:hover{ background: rgba(240, 123, 31, 0.1); }
+#pane-aoi /* Preview table */
+  .preview{
+    margin-top: 16px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: auto;
+    max-height: 300px;
+  }
+#pane-aoi table{
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+#pane-aoi th{
+    background: var(--surface2);
+    color: var(--text3);
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 400;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+  }
+#pane-aoi td{ padding: 6px 12px; border-bottom: 1px solid var(--border); }
+#pane-aoi tr:last-child td{ border-bottom: none; }
+#pane-aoi tr:hover td{ background: var(--surface2); }
+#pane-aoi .col-highlight{ color: var(--blue); font-weight: 600; }
+#pane-aoi .hidden{ display: none !important; }
+#pane-aoi ::-webkit-scrollbar{ width: 6px; height: 6px; }
+#pane-aoi ::-webkit-scrollbar-track{ background: transparent; }
+#pane-aoi ::-webkit-scrollbar-thumb{ background: var(--border); border-radius: 3px; }</style>
+<style>/* ===== Expert (portee limitee a son panneau) ===== */
+#pane-exp{--bg: #0a0c12;
+    --surface: #1a2030;
+    --surface2: #161b27;
+    --border: #262e42;
+    --accent: #F07B1F;
+    --accent-bg: #2a1f10;
+    --blue: #5BC4D8;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #64748b;
+    --green: #86c564; --green-bg: #EAF3DE; --green-badge: #3B6D11;
+    --amber: #eab676; --amber-bg: #FAEEDA; --amber-badge: #854F0B;
+    --red: #f09595;   --red-bg: #FCEBEB;   --red-badge: #A32D2D;
+    --radius: 6px;
+    --mono: "SF Mono","Cascadia Code",Consolas,monospace;
+    --sans: -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;}
+#pane-exp *{ box-sizing: border-box; margin: 0; padding: 0; }
+#pane-exp{ background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; font-size: 13px; }
+#pane-exp header{
+    background: #0f1117;
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+#pane-exp .logo-wrap{ display: flex; align-items: center; gap: 10px; }
+#pane-exp .logo-text{ display: flex; align-items: center; gap: 0; font-size: 13px; font-weight: 500; }
+#pane-exp .logo-text .lt{ color: #fff; }
+#pane-exp .logo-text .ls{ color: #444; margin: 0 4px; }
+#pane-exp .logo-text .lo{ color: var(--accent); }
+#pane-exp main{ padding: 28px 32px; max-width: min(96vw, 1200px); }
+#pane-exp .section-title{
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+#pane-exp .card{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+#pane-exp .card h2{ font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+#pane-exp .card p{ font-size: 12px; color: var(--text2); margin-bottom: 16px; line-height: 1.5; }
+#pane-exp .drop-zone{
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 28px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+#pane-exp .drop-zone:hover, #pane-exp .drop-zone.dragover{ border-color: var(--accent); background: var(--accent-bg); }
+#pane-exp .drop-zone.loaded{ border-color: var(--accent); background: var(--accent-bg); }
+#pane-exp .drop-zone input[type=file]{ position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+#pane-exp .drop-icon{ font-size: 24px; margin-bottom: 8px; display: block; }
+#pane-exp .drop-hint{ font-size: 12px; color: var(--text2); }
+#pane-exp .drop-hint strong{ color: var(--text); }
+#pane-exp .filename{ font-family: var(--mono); font-size: 11px; color: var(--accent); margin-top: 8px; }
+#pane-exp .stats-row{ display: flex; gap: 10px; margin-top: 12px; }
+#pane-exp .stat{ flex: 1; background: var(--surface2); border-radius: var(--radius); padding: 10px 14px; font-family: var(--mono); }
+#pane-exp .stat-val{ font-size: 20px; font-weight: 600; color: var(--accent); }
+#pane-exp .stat-lbl{ font-size: 10px; color: var(--text3); margin-top: 2px; }
+#pane-exp .btn-run{
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 10px 28px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+#pane-exp .btn-run:disabled{ background: var(--surface2); color: var(--text3); cursor: not-allowed; }
+#pane-exp .btn-run:not(:disabled):hover{ opacity: 0.9; }
+#pane-exp .btn-dl{
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    border-radius: var(--radius);
+    padding: 8px 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-top: 14px;
+    display: inline-block;
+  }
+#pane-exp .btn-dl:hover{ background: var(--accent-bg); }
+#pane-exp /* Table résultats */
+  .table-wrap{
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: auto;
+    max-height: 450px;
+    margin-top: 14px;
+  }
+#pane-exp table{ width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11px; }
+#pane-exp th{
+    background: var(--surface2);
+    color: var(--text3);
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 400;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    white-space: nowrap;
+  }
+#pane-exp td{ padding: 6px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+#pane-exp tr:last-child td{ border-bottom: none; }
+#pane-exp tr:hover td{ background: var(--surface2); }
+#pane-exp .badge-prog{
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    background: var(--accent-bg);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+  }
+#pane-exp .badge-top{ background: rgba(91,196,216,0.12); color: var(--blue); border: 1px solid rgba(91,196,216,0.3); padding: 1px 7px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+#pane-exp .badge-bot{ background: rgba(234,182,118,0.12); color: var(--amber); border: 1px solid rgba(234,182,118,0.3); padding: 1px 7px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+#pane-exp .summary-row{ display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+#pane-exp .summary-stat{ background: var(--surface2); border-radius: var(--radius); padding: 10px 16px; font-family: var(--mono); border-left: 3px solid var(--accent); }
+#pane-exp .summary-stat .val{ font-size: 18px; font-weight: 600; color: var(--accent); }
+#pane-exp .summary-stat .lbl{ font-size: 10px; color: var(--text3); margin-top: 2px; }
+#pane-exp .hidden{ display: none !important; }
+#pane-exp ::-webkit-scrollbar{ width: 5px; height: 5px; }
+#pane-exp ::-webkit-scrollbar-track{ background: transparent; }
+#pane-exp ::-webkit-scrollbar-thumb{ background: var(--border); border-radius: 3px; }</style>
 </head>
 <body>
+
+<script>
+(function(){
+  var KEY='pp_access_code', HDR='X-PP-Auth', HOST='protoprocess.app.n8n.cloud';
+  function get(){try{return localStorage.getItem(KEY)||''}catch(e){return ''}}
+  function set(v){try{localStorage.setItem(KEY,v)}catch(e){}}
+  function del(){try{localStorage.removeItem(KEY)}catch(e){}}
+
+  /* 1) Interception installee EN PREMIER : ne depend d'aucun element HTML */
+  var _f = window.fetch;
+  window.fetch = function(input, init){
+    var url = '';
+    try { url = (typeof input === 'string') ? input : ((input && input.url) || ''); } catch(e){}
+    if (url.indexOf(HOST) === -1) { return _f.apply(this, arguments); }
+    init = init || {};
+    try { var h = new Headers(init.headers || {}); h.set(HDR, get()); init.headers = h; } catch(e){}
+    return _f.call(this, input, init).then(function(r){
+      if (r && (r.status === 401 || r.status === 403)) { del(); demander("Code d'acces refuse. Ressaisissez-le."); }
+      return r;
+    });
+  };
+
+  /* 2) Ecran construit en JS : aucune dependance au HTML de l'appli */
+  var box = null;
+  function construire(){
+    if (box) return box;
+    box = document.createElement('div');
+    box.id = 'pp-gate';
+    box.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:#0a0c12;display:none;'
+      + 'align-items:center;justify-content:center;padding:20px;'
+      + 'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif';
+    box.innerHTML =
+      '<div style="background:#1a2030;border:1px solid #262e42;border-radius:10px;padding:26px;max-width:380px;width:100%">'
+      + '<div style="font-size:13px;font-weight:500;margin-bottom:14px">'
+      +   '<span style="color:#fff">PROTO PROCESS</span><span style="color:#444;margin:0 3px">/</span>'
+      +   '<span style="color:#F07B1F">Acces</span></div>'
+      + '<div style="font-size:12.5px;color:#94a3b8;line-height:1.55;margin-bottom:16px">'
+      +   "Saisissez le code d'acces interne. Il ne vous sera demande qu'une fois sur cet appareil.</div>"
+      + '<input id="pp-in" type="password" placeholder="Code d acces" autocomplete="off" '
+      +   'style="width:100%;background:#161b27;border:1px solid #262e42;border-radius:6px;color:#e2e8f0;'
+      +   'padding:9px 11px;font-size:13px;outline:none;font-family:inherit;box-sizing:border-box">'
+      + '<div id="pp-err" style="font-size:12px;color:#f09595;margin-top:9px;min-height:16px"></div>'
+      + '<button id="pp-btn" style="width:100%;margin-top:12px;padding:9px;background:#F07B1F;color:#fff;'
+      +   'border:none;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">Valider</button>'
+      + '</div>';
+    document.body.appendChild(box);
+    var inp = box.querySelector('#pp-in'), btn = box.querySelector('#pp-btn');
+    btn.addEventListener('click', function(){
+      var v = (inp.value || '').trim();
+      if (!v) { box.querySelector('#pp-err').textContent = 'Code requis.'; return; }
+      set(v); inp.value = ''; box.style.display = 'none'; location.reload();
+    });
+    inp.addEventListener('keydown', function(e){ if (e.key === 'Enter') { btn.click(); } });
+    return box;
+  }
+
+  function demander(msg){
+    if (!document.body) { document.addEventListener('DOMContentLoaded', function(){ demander(msg); }); return; }
+    var b = construire();
+    b.querySelector('#pp-err').textContent = msg || '';
+    b.style.display = 'flex';
+    setTimeout(function(){ try { b.querySelector('#pp-in').focus(); } catch(e){} }, 50);
+  }
+
+  window.ppChangerCode = function(){ del(); demander(''); };
+  /* v4.0 : plus d'ecran au chargement. L'ecran n'apparait que sur refus 401/403. */
+})();
+</script>
 
 <header>
   <div class="logo">
     <img src="../shared/picto-pp.png" alt="Proto Process" width="24" height="24" style="object-fit:contain" onerror="this.style.display='none'">
-    <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">MYCenter Prep</span></span>
+    <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">M&#233;thodes</span></span>
   </div>
-  <span class="subtitle">Automatisation BOM + Centroïdes → Import MYCenter</span>
+  <span class="subtitle">MYCenter Prep &#183; Supports &#183; Expert &#183; AOI</span>
   <div style="flex:1"></div>
   <span class="hdr-note" id="hdr-version"></span>
 </header>
+
+<nav class="tabs">
+  <button class="active" data-pane="pane-mcp">MYCenter Prep</button>
+  <button data-pane="pane-exp">Expert</button>
+  <button data-pane="pane-aoi">AOI</button>
+</nav>
+
+
+<div class="pane active" id="pane-mcp">
 
 <div class="pipeline">
   <div class="step done" id="step1"><div class="step-dot"></div>Chargement fichiers</div>
@@ -692,6 +1128,211 @@
   </div>
 
 </main>
+
+</div>
+
+<div class="pane" id="pane-exp">
+
+<main>
+  <div class="card">
+    <div class="section-title">Fichier source</div>
+    <h2>BOM PP (.ods)</h2>
+    <p>Fichier généré par MYCenter Prep contenant les feuilles <strong>BOM PP</strong> et <strong>PnP</strong>. Seuls les composants avec MAG commençant par <strong>P</strong> ou <strong>F</strong> sont exportés.</p>
+    <div class="drop-zone" id="exp-drop-zone"
+      ondragover="exp_dov(event)" ondragleave="exp_dol()" ondrop="exp_dod(event)">
+      <input type="file" accept=".ods,.xlsx,.xls" onchange="exp_handleSel(event)">
+      <span class="drop-icon">📋</span>
+      <div class="drop-hint"><strong>Glisser-déposer</strong> ou cliquer pour sélectionner</div>
+      <div class="drop-hint" style="margin-top:4px">Formats : .ods, .xlsx</div>
+      <div class="filename hidden" id="exp-filename"></div>
+    </div>
+    <div class="stats-row hidden" id="exp-stats">
+      <div class="stat"><div class="stat-val" id="exp-stat-total">—</div><div class="stat-lbl">Composants EXPERT</div></div>
+      <div class="stat"><div class="stat-val" id="exp-stat-top">—</div><div class="stat-lbl">TOP (T/B=1)</div></div>
+      <div class="stat"><div class="stat-val" id="exp-stat-bot">—</div><div class="stat-lbl">BOT (T/B=2)</div></div>
+      <div class="stat"><div class="stat-val" id="exp-stat-prog">—</div><div class="stat-lbl">Programmes</div></div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:16px">
+    <button class="btn-run" id="exp-btn-run" onclick="exp_generate()" disabled>▶ Générer EXPERT</button>
+  </div>
+
+  <div class="hidden" id="exp-results">
+    <div class="card">
+      <div class="section-title">Résultat</div>
+      <h2 style="margin-bottom:12px">Fichier EXPERT</h2>
+      <div class="summary-row" id="exp-summary-row"></div>
+      <button class="btn-dl" onclick="exp_downloadXLSX()">⬇ Télécharger EXPERT.xlsx</button>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Ligne</th>
+              <th>Fabrication</th>
+              <th>Ref</th>
+              <th>Composant</th>
+              <th>T/B</th>
+              <th>X</th>
+              <th>Y</th>
+              <th>O</th>
+              <th>BOITIER</th>
+              <th>MAG</th>
+            </tr>
+          </thead>
+          <tbody id="exp-result-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+
+</div>
+
+<div class="pane" id="pane-aoi">
+
+<main>
+
+  <!-- Drop zone -->
+  <div class="card" style="grid-column: span 2;">
+    <div class="card-label">Fichier source</div>
+    <h2>Fichier de placement</h2>
+    <p>Fichier TSV/CSV avec les colonnes : REF | IPN | _ | Package | X | Y | Rotation | Top | Mirror</p>
+    <div class="drop-zone" id="aoi-drop-zone"
+      ondragover="aoi_handleDragOver(event)" ondragleave="aoi_handleDragLeave()" ondrop="aoi_handleDrop(event)">
+      <input type="file" accept=".tsv,.csv,.txt" onchange="aoi_handleFileSelect(event)">
+      <i class="ti ti-upload drop-icon" aria-hidden="true"></i>
+      <div class="drop-hint"><strong>Glisser-déposer</strong> ou cliquer pour sélectionner</div>
+      <div class="drop-hint" style="margin-top:4px">Formats : .tsv, .csv</div>
+      <div class="filename hidden" id="aoi-filename"></div>
+    </div>
+  </div>
+
+  <!-- Règles de transformation -->
+  <div class="card rules-card">
+    <div class="card-label">Règles de transformation</div>
+    <h2 style="margin-bottom:14px">Colonnes source → AOI</h2>
+    <div class="rules-grid">
+      <div class="rule">
+        <div class="rule-col">Col A — Référence</div>
+        <div class="rule-arrow"><span class="rule-to">Inchangée</span></div>
+      </div>
+      <div class="rule">
+        <div class="rule-col">Col B — IPN</div>
+        <div class="rule-arrow"><span class="rule-to">Inchangée</span></div>
+      </div>
+      <div class="rule">
+        <div class="rule-col">Col C — Séparateur (_)</div>
+        <div class="rule-arrow"><span class="rule-from">_</span> <span>→</span> <span class="rule-to">Supprimée</span></div>
+      </div>
+      <div class="rule">
+        <div class="rule-col">Col D → C — Package</div>
+        <div class="rule-arrow"><span class="rule-to">Décalée en C</span></div>
+      </div>
+      <div class="rule">
+        <div class="rule-col">Col E, F — X, Y</div>
+        <div class="rule-arrow"><span class="rule-to">Inchangées</span></div>
+      </div>
+      <div class="rule">
+        <div class="rule-col">Col G — Rotation</div>
+        <div class="rule-arrow">
+          <span class="rule-from">90000</span>
+          <span>→</span>
+          <span class="rule-to">val ÷ 1000 − 90</span>
+        </div>
+      </div>
+      <div class="rule">
+        <div class="rule-col">Col H — Face</div>
+        <div class="rule-arrow"><span class="rule-to">Inchangée</span></div>
+      </div>
+      <div class="rule">
+        <div class="rule-col">Col I — Mirror</div>
+        <div class="rule-arrow"><span class="rule-from">True/False</span> <span>→</span> <span class="rule-to">Supprimée</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Run -->
+  <div class="run-section">
+    <button class="btn-run" id="aoi-btn-run" onclick="aoi_runConvert()" disabled>
+      <i class="ti ti-player-play" aria-hidden="true"></i> Convertir
+    </button>
+    <div style="font-size:12px; color:var(--text3)" id="aoi-run-hint">Chargez un fichier pour continuer</div>
+  </div>
+
+  <!-- Résultats -->
+  <div class="card results-card hidden" id="aoi-results">
+    <div class="card-label">Résultat</div>
+    <h2 style="margin-bottom:16px">Conversion terminée</h2>
+
+    <div class="stats-row">
+      <div class="stat"><div class="stat-val" id="aoi-res-lignes">—</div><div class="stat-lbl">Lignes converties</div></div>
+      <div class="stat"><div class="stat-val" id="aoi-res-top">—</div><div class="stat-lbl">Face TOP</div></div>
+      <div class="stat"><div class="stat-val" id="aoi-res-bot">—</div><div class="stat-lbl">Face BOT</div></div>
+    </div>
+
+    <button class="btn-dl" onclick="aoi_downloadResult()"><i class="ti ti-download" aria-hidden="true"></i> Télécharger le fichier AOI (.csv)</button>
+
+    <div class="preview">
+      <table>
+        <thead>
+          <tr>
+            <th>A — REF</th>
+            <th>B — IPN</th>
+            <th>C — Package</th>
+            <th>D — X</th>
+            <th>E — Y</th>
+            <th class="col-highlight">F — Rotation</th>
+            <th class="col-highlight">G — Face</th>
+          </tr>
+        </thead>
+        <tbody id="aoi-preview-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+
+
+</div>
+
+<button id="sig-btn" onclick="ouvrirSignalement()" title="Signaler un bug, une analyse fausse ou une idée">
+  <i class="ti ti-message-report"></i> Signaler</button>
+
+<div id="sig-fond" class="hidden">
+  <div id="sig-boite">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <h2 style="margin:0"><i class="ti ti-message-report"></i> Signaler</h2>
+      <button class="btn-ann" onclick="fermerSignalement()">✕</button>
+    </div>
+    <p style="font-size:11.5px;color:var(--text2,#94a3b8);margin:0 0 12px">
+      L'appli et sa version partent automatiquement avec votre message.</p>
+
+    <div class="sig-t" id="sig-types">
+      <button data-t="bug" class="on" onclick="sigType('bug')">Bug</button>
+      <button data-t="analyse" onclick="sigType('analyse')">Analyse fausse</button>
+      <button data-t="idee" onclick="sigType('idee')">Idée</button>
+    </div>
+
+    <label class="f">Votre nom</label>
+    <input class="f" id="sig-auteur" placeholder="pour qu'on puisse revenir vers vous">
+
+    <label class="f">Ce que vous avez constaté</label>
+    <textarea class="f" id="sig-desc" rows="6" placeholder="Sur une analyse fausse, précisez la valeur attendue et où vous l'avez lue."></textarea>
+
+    <div id="sig-msg" style="font-size:12px;margin-top:2px"></div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:13px">
+      <button class="btn-ann" onclick="fermerSignalement()">Annuler</button>
+      <button class="btn-env" id="sig-env" onclick="envoyerSignalement()">Envoyer</button>
+    </div>
+  </div>
+</div>
+
+
+
+<div id="planche"></div>
 
 <script>
 /* ---------- version ---------- */
@@ -2012,10 +2653,416 @@ function supDownloadSQL() {
 }
 
 </script>
+<script>(function(){
 
+let expertRows = [];
+let projectName = 'EXPERT';
 
+// ── Drag & Drop ───────────────────────────────────────────────────────────────
+function dov(e) { e.preventDefault(); document.getElementById('exp-drop-zone').classList.add('dragover'); }
+function dol()  { document.getElementById('exp-drop-zone').classList.remove('dragover'); }
+function dod(e) { e.preventDefault(); dol(); loadFile(e.dataTransfer.files[0]); }
+function handleSel(e) { loadFile(e.target.files[0]); }
 
+function loadFile(file) {
+  if (!file) return;
+  projectName = file.name.replace(/\.[^.]+$/, '');
+  const r = new FileReader();
+  r.onload = (ev) => parseFile(ev.target.result, file.name);
+  r.readAsArrayBuffer(file);
+}
 
+// ── Parsing ───────────────────────────────────────────────────────────────────
+function parseFile(data, filename) {
+  try {
+    const wb = XLSX.read(data, { type: 'array' });
 
-<div id="planche"></div>
+    // Trouver la feuille BOM PP
+    const bomSheetName = wb.SheetNames.find(n => /bom.pp/i.test(n) && !/lumi/i.test(n)) || wb.SheetNames[0];
+    const pnpSheetName = wb.SheetNames.find(n => /^pnp$/i.test(n.trim()));
+
+    if (!pnpSheetName) { alert('Feuille PnP introuvable dans le fichier.'); return; }
+
+    const wsBOM = wb.Sheets[bomSheetName];
+    const wsPnP = wb.Sheets[pnpSheetName];
+
+    const bomRows = XLSX.utils.sheet_to_json(wsBOM, { defval: '' });
+    const pnpRows = XLSX.utils.sheet_to_json(wsPnP, { defval: '' });
+
+    // Trouver les colonnes BOM PP
+    const bomKeys = Object.keys(bomRows[0] || {});
+    function findBOMCol(...pats) {
+      return bomKeys.find(k => pats.some(p => k.toLowerCase().includes(p.toLowerCase()))) || '';
+    }
+    const colDesig = findBOMCol('designator','ref');
+    const colIPN   = findBOMCol('internal part number','ipn','approved');
+    const colMAG   = findBOMCol('mag','programme','program');
+    const colFACE  = findBOMCol('face','side','layer');
+
+    // Construire map REF -> {ipn, mag, face}
+    const bomMap = {};
+    bomRows.forEach(row => {
+      const mag  = String(row[colMAG]  || '').trim();
+      const ipn  = String(row[colIPN]  || '').trim();
+      const face = String(row[colFACE] || '').trim();
+      const desigRaw = String(row[colDesig] || '');
+      // Ne garder que P0x et F0x
+      if (!/^[PF]\d+$/i.test(mag)) return;
+      desigRaw.split(',').map(d => d.trim()).filter(Boolean).forEach(ref => {
+        bomMap[ref] = { ipn, mag, face };
+      });
+    });
+
+    // Trouver les colonnes PnP
+    const pnpKeys = Object.keys(pnpRows[0] || {});
+    function findPnPCol(...pats) {
+      return pnpKeys.find(k => pats.some(p => k.toLowerCase().includes(p.toLowerCase()))) || '';
+    }
+    const pRef  = findPnPCol('ref','designator');
+    const pX    = findPnPCol('posx','pos x','center-x','x');
+    const pY    = findPnPCol('posy','pos y','center-y','y');
+    const pRot  = findPnPCol('rot','rotation','angle','orient');
+    const pSide = findPnPCol('side','layer','face','tb');
+
+    // Construire la liste EXPERT
+    expertRows = [];
+    let ligne = 1;
+
+    pnpRows.forEach(row => {
+      const ref = String(row[pRef] || '').trim();
+      if (!ref || !bomMap[ref]) return;
+
+      const { ipn, mag, face } = bomMap[ref];
+      const xRaw   = parseFloat(String(row[pX]   || '').replace(',','.')) || 0;
+      const yRaw   = parseFloat(String(row[pY]   || '').replace(',','.')) || 0;
+      const rotRaw2 = parseFloat(String(row[pRot] || '').replace(',','.')) || 0;
+      // Forcer point décimal en texte pour éviter la conversion par LibreOffice/Excel
+      const xFmt   = String(Math.round(xRaw   * 1000) / 1000).replace(',','.');
+      const yFmt   = String(Math.round(yRaw   * 1000) / 1000).replace(',','.');
+      const rotFmt = String(Math.round(rotRaw2 * 1000) / 1000).replace(',','.');
+
+      // T/B : depuis PnP Side ou BOM Face
+      const sideRaw = String(row[pSide] || face || '').trim().toUpperCase();
+      const tb = sideRaw.startsWith('TOP') || sideRaw === 'T' || sideRaw === '1' ? 1 : 2;
+
+      expertRows.push({
+        Ligne:        ligne++,
+        Fabrication:  ref,
+        Ref:          ipn,
+        Composant:    ipn,
+        'T/B':        tb,
+        X:            xFmt,
+        Y:            yFmt,
+        O:            rotFmt,
+        BOITIER:      1210,
+        MAG:          mag
+      });
+    });
+
+    // Stats
+    const topCount  = expertRows.filter(r => r['T/B'] === 1).length;
+    const botCount  = expertRows.filter(r => r['T/B'] === 2).length;
+    const progs     = [...new Set(expertRows.map(r => r.MAG))].sort();
+
+    document.getElementById('exp-drop-zone').classList.add('loaded');
+    document.getElementById('exp-filename').textContent = filename;
+    document.getElementById('exp-filename').classList.remove('hidden');
+    document.getElementById('exp-stats').classList.remove('hidden');
+    document.getElementById('exp-stat-total').textContent = expertRows.length;
+    document.getElementById('exp-stat-top').textContent   = topCount;
+    document.getElementById('exp-stat-bot').textContent   = botCount;
+    document.getElementById('exp-stat-prog').textContent  = progs.length;
+    document.getElementById('exp-btn-run').disabled = false;
+
+  } catch(e) { alert('Erreur : ' + e.message); }
+}
+
+// ── Génération ────────────────────────────────────────────────────────────────
+function generate() {
+  if (!expertRows.length) return;
+
+  // Trier par MAG puis par REF
+  const sorted = [...expertRows].sort((a,b) => {
+    if (a.MAG < b.MAG) return -1;
+    if (a.MAG > b.MAG) return 1;
+    return 0;
+  });
+
+  // Renuméroter
+  sorted.forEach((r, i) => { r.Ligne = i + 1; });
+
+  // Stats par programme
+  const progs = [...new Set(sorted.map(r => r.MAG))].sort();
+  const summaryEl = document.getElementById('exp-summary-row');
+  summaryEl.innerHTML = progs.map(p => {
+    const count = sorted.filter(r => r.MAG === p).length;
+    return `<div class="summary-stat"><div class="val">${count}</div><div class="lbl">${p}</div></div>`;
+  }).join('');
+
+  // Tableau
+  const tbody = document.getElementById('exp-result-tbody');
+  tbody.innerHTML = sorted.map(r => `<tr>
+    <td style="color:var(--text3)">${r.Ligne}</td>
+    <td style="color:var(--text)">${r.Fabrication}</td>
+    <td style="color:var(--blue);font-weight:600">${r.Ref}</td>
+    <td style="color:var(--text2)">${r.Composant}</td>
+    <td><span class="${r['T/B']===1?'badge-top':'badge-bot'}">${r['T/B']===1?'1 TOP':'2 BOT'}</span></td>
+    <td style="color:var(--text2)">${r.X}</td>
+    <td style="color:var(--text2)">${r.Y}</td>
+    <td style="color:var(--text2)">${r.O}</td>
+    <td style="color:var(--text3)">1210</td>
+    <td><span class="badge-prog">${r.MAG}</span></td>
+  </tr>`).join('');
+
+  document.getElementById('exp-results').classList.remove('hidden');
+  document.getElementById('exp-results').scrollIntoView({ behavior: 'smooth' });
+
+  expertRows = sorted;
+}
+
+// ── Export XLSX ───────────────────────────────────────────────────────────────
+function downloadXLSX() {
+  if (!expertRows.length) return;
+  const headers = ['Ligne','Fabrication','Ref','Composant','T/B','X','Y','O','BOITIER','MAG'];
+  
+  // Construire le tableau avec en-tête
+  const aoa = [headers];
+  expertRows.forEach(r => {
+    aoa.push([
+      r.Ligne, r.Fabrication, r.Ref, r.Composant, r['T/B'],
+      r.X,  // déjà en string avec point décimal
+      r.Y,
+      r.O,
+      r.BOITIER, r.MAG
+    ]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  // Forcer X, Y, O (colonnes F=5, G=6, H=7) en texte
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let row = 1; row <= range.e.r; row++) {
+    ['F','G','H'].forEach(col => {
+      const addr = col + (row + 1);
+      if (ws[addr]) {
+        ws[addr].t = 's'; // forcer type texte
+      }
+    });
+  }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Feuille1');
+  XLSX.writeFile(wb, `EXPERT_${projectName}.xlsx`);
+}
+
+window.exp_dod = dod;
+window.exp_dol = dol;
+window.exp_dov = dov;
+window.exp_downloadXLSX = downloadXLSX;
+window.exp_generate = generate;
+window.exp_handleSel = handleSel;
+})();</script>
+<script>(function(){
+
+/* ---------- version ---------- */
+// Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
+const APP_VERSION = "2.0";
+const APP_DATE = "21/08/2026";
+document.title = `AOI Converter — v${APP_VERSION} — ${APP_DATE}`;
+document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
+
+let sourceData = null;
+let convertedRows = [];
+let outputFilename = 'AOI_output.csv';
+
+// ── Drag & Drop ───────────────────────────────────────────────────────────────
+function handleDragOver(e) { e.preventDefault(); document.getElementById('aoi-drop-zone').classList.add('dragover'); }
+function handleDragLeave()  { document.getElementById('aoi-drop-zone').classList.remove('dragover'); }
+function handleDrop(e) { e.preventDefault(); handleDragLeave(); loadFile(e.dataTransfer.files[0]); }
+function handleFileSelect(e) { loadFile(e.target.files[0]); }
+
+function loadFile(file) {
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = (ev) => {
+    const text = ev.target.result.includes('\uFFFD')
+      ? null : ev.target.result;
+    if (!text) {
+      const r2 = new FileReader();
+      r2.onload = (ev2) => parseFile(ev2.target.result, file.name);
+      r2.readAsText(file, 'latin-1');
+    } else {
+      parseFile(text, file.name);
+    }
+  };
+  r.readAsText(file, 'utf-8');
+}
+
+// ── Parse ─────────────────────────────────────────────────────────────────────
+function parseFile(text, filename) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  const sep = (lines[0].match(/\t/g)||[]).length >= 3 ? '\t' : ',';
+
+  sourceData = lines.map(l => l.split(sep).map(c => c.trim().replace(/^"|"$/g,'')));
+  outputFilename = filename.replace(/\.(tsv|csv|txt)$/i, '') + '-AOI.csv';
+
+  document.getElementById('aoi-drop-zone').classList.add('loaded');
+  document.getElementById('aoi-filename').textContent = filename;
+  document.getElementById('aoi-filename').classList.remove('hidden');
+  document.getElementById('aoi-btn-run').disabled = false;
+  document.getElementById('aoi-run-hint').textContent = `${lines.length} lignes chargées — prêt à convertir`;
+}
+
+// ── Conversion ────────────────────────────────────────────────────────────────
+function runConvert() {
+  if (!sourceData) return;
+
+  convertedRows = [];
+  const normalRows = [], ncRows = [], tradRows = [];
+
+  sourceData.forEach(cols => {
+    if (cols.length < 7) return;
+
+    const ref    = cols[0] || '';
+    const ipn    = cols[1] || '';
+    const isNC   = ipn.trim().toUpperCase() === 'NC';
+    const isTRAD = ipn.trim().toUpperCase() === 'TRAD';
+    const pkg    = isNC ? 'NC' : isTRAD ? 'TRAD' : (cols[3] || '').replace(/\s+/g, '');
+    const x      = cols[4] || '';
+    const y      = cols[5] || '';
+    const rotRaw = parseFloat(cols[6]) || 0;
+    const rot    = rotRaw / 1000 - 90;
+    const faceRaw = (cols[7] || '').trim().toLowerCase();
+    const face = faceRaw === 'true' ? 'monter' : faceRaw === 'false' ? 'non monté' : (cols[7] || '').trim();
+
+    if (!ref) return;
+
+    const row = [ref, ipn, pkg, x, y, rot, face];
+    if (isNC)        ncRows.push(row);
+    else if (isTRAD) tradRows.push(row);
+    else             normalRows.push(row);
+  });
+
+  // Ordre : composants normaux → NC → TRAD
+  convertedRows = [...normalRows, ...ncRows, ...tradRows];
+
+  // Stats
+  const top = convertedRows.filter(r => r[6] === 'T').length;
+  const bot = convertedRows.filter(r => r[6] === 'F').length;
+
+  document.getElementById('aoi-res-lignes').textContent = convertedRows.length;
+  document.getElementById('aoi-res-top').textContent = top;
+  document.getElementById('aoi-res-bot').textContent = bot;
+
+  // Preview (10 premières lignes)
+  const tbody = document.getElementById('aoi-preview-body');
+  tbody.innerHTML = convertedRows.slice(0, 10).map(r =>
+    `<tr>
+      <td>${r[0]}</td>
+      <td>${r[1]}</td>
+      <td>${r[2]}</td>
+      <td>${r[3]}</td>
+      <td>${r[4]}</td>
+      <td class="col-highlight">${r[5]}</td>
+      <td class="col-highlight">${r[6]}</td>
+    </tr>`
+  ).join('');
+
+  document.getElementById('aoi-results').classList.remove('hidden');
+  document.getElementById('aoi-results').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── Download ──────────────────────────────────────────────────────────────────
+function downloadResult() {
+  if (!convertedRows.length) return;
+  const csv = convertedRows.map(r => r.join('\t')).join('\n');
+  const blob = new Blob([csv], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = outputFilename;
+  a.click();
+}
+
+window.aoi_downloadResult = downloadResult;
+window.aoi_handleDragLeave = handleDragLeave;
+window.aoi_handleDragOver = handleDragOver;
+window.aoi_handleDrop = handleDrop;
+window.aoi_handleFileSelect = handleFileSelect;
+window.aoi_runConvert = runConvert;
+})();</script>
+<script>
+/* ---------- signalement : module commun (chantier 72) ----------
+   Auto-suffisant : URL de production en dur, l'en-tete X-PP-Auth est pose par
+   l'intercepteur d'acces commun. Le contexte minimal (appli, version) part
+   automatiquement. Destination : Data Table n8n + table Supabase signalements
+   (lue par Claude) + mail immediat. */
+(function(){
+  var URL_SIG = 'https://protoprocess.app.n8n.cloud/webhook/v2-signalement';
+  var CLE_SIGNALEUR = 'pp_signaleur';
+  var SIG_TYPE = 'bug';
+  var APPLI = 'methodes';
+
+  window.sigType = function(t){
+    SIG_TYPE = t;
+    document.querySelectorAll('#sig-types button').forEach(function(b){ b.classList.toggle('on', b.dataset.t === t); });
+  };
+  window.ouvrirSignalement = function(){
+    try{ document.getElementById('sig-auteur').value = localStorage.getItem(CLE_SIGNALEUR) || ''; }catch(e){}
+    document.getElementById('sig-msg').textContent = '';
+    document.getElementById('sig-fond').classList.remove('hidden');
+    document.getElementById('sig-desc').focus();
+  };
+  window.fermerSignalement = function(){ document.getElementById('sig-fond').classList.add('hidden'); };
+  window.envoyerSignalement = function(){
+    var desc = document.getElementById('sig-desc').value.trim();
+    var msg = document.getElementById('sig-msg');
+    if(!desc){ msg.innerHTML = '<span style="color:#f09595">Décrivez ce que vous avez constaté.</span>'; return; }
+    var auteur = document.getElementById('sig-auteur').value.trim();
+    try{ if(auteur) localStorage.setItem(CLE_SIGNALEUR, auteur); }catch(e){}
+    var btn = document.getElementById('sig-env');
+    btn.disabled = true;
+    msg.innerHTML = '<span style="color:var(--text2,#94a3b8)">Envoi…</span>';
+    fetch(URL_SIG, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        type: SIG_TYPE, description: desc, auteur: auteur,
+        appli: APPLI + ' / ' + (window.PP_ONGLET === 'pane-exp' ? 'Expert' : window.PP_ONGLET === 'pane-aoi' ? 'AOI' : 'MYCenter Prep'), version: '4.0'
+      })
+    }).then(function(r){
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      msg.innerHTML = '<span style="color:#86c564">Merci, c\'est envoyé.</span>';
+      document.getElementById('sig-desc').value = '';
+      setTimeout(window.fermerSignalement, 1400);
+    }).catch(function(e){
+      msg.innerHTML = '<span style="color:#f09595">Envoi impossible : ' + String(e.message).replace(/[<>&]/g,'') + '. Réessayez ou prévenez Olivier.</span>';
+    }).then(function(){ btn.disabled = false; });
+  };
+})();
+</script>
+<script>
+/* ---- onglets Methodes v4.0 ---- */
+(function(){
+  var APP_VERSION_G = "4.0", APP_DATE_G = "09/09/2026";
+  document.title = "Methodes \u2014 v" + APP_VERSION_G + " \u2014 " + APP_DATE_G;
+  function poser(){
+    var h = document.getElementById('hdr-version');
+    if (h) h.textContent = 'v' + APP_VERSION_G + ' \u2014 ' + APP_DATE_G;
+    var btns = document.querySelectorAll('.tabs button');
+    for (var i=0;i<btns.length;i++){
+      btns[i].addEventListener('click', function(){
+        var cible = this.getAttribute('data-pane');
+        var b = document.querySelectorAll('.tabs button');
+        for (var j=0;j<b.length;j++) b[j].classList.toggle('active', b[j]===this);
+        var panes = document.querySelectorAll('.pane');
+        for (var k=0;k<panes.length;k++) panes[k].classList.toggle('active', panes[k].id===cible);
+        window.PP_ONGLET = cible;
+        try { window.scrollTo(0,0); } catch(e){}
+      });
+    }
+    window.PP_ONGLET = 'pane-mcp';
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', poser);
+  else poser();
+})();
+</script>
 </body></html>
