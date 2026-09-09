@@ -519,10 +519,11 @@
 </style>
 <style>
 /* ---- onglets Methodes v4.0 ---- */
-.tabs { display:flex; gap:0; background:var(--surface2); border-bottom:1px solid var(--border);
+.tabs { display:flex; gap:6px; background:var(--surface2); border-bottom:1px solid var(--border);
         padding:0 18px; position:sticky; top:0; z-index:50; }
-.tabs button { padding:11px 18px; background:none; border:none; border-bottom:2px solid transparent;
-        color:var(--text3); font-size:12.5px; font-family:inherit; cursor:pointer; font-weight:500; }
+.tabs button { padding:15px 30px; background:none; border:none; border-bottom:3px solid transparent;
+        color:var(--text3); font-size:15px; font-family:inherit; cursor:pointer; font-weight:600;
+        letter-spacing:0.2px; }
 .tabs button:hover { color:var(--text2); }
 .tabs button.active { color:var(--blue); border-bottom-color:var(--blue); }
 .pane { display:none; }
@@ -3026,7 +3027,7 @@ window.aoi_runConvert = runConvert;
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
         type: SIG_TYPE, description: desc, auteur: auteur,
-        appli: APPLI + ' / ' + (window.PP_ONGLET === 'pane-exp' ? 'Expert' : window.PP_ONGLET === 'pane-aoi' ? 'AOI' : 'MYCenter Prep'), version: '4.1'
+        appli: APPLI + ' / ' + (window.PP_ONGLET === 'pane-exp' ? 'Expert' : window.PP_ONGLET === 'pane-aoi' ? 'AOI' : 'MYCenter Prep'), version: '4.2'
       })
     }).then(function(r){
       if(!r.ok) throw new Error('HTTP ' + r.status);
@@ -3042,7 +3043,7 @@ window.aoi_runConvert = runConvert;
 <script>
 /* ---- onglets Methodes v4.0 ---- */
 (function(){
-  var APP_VERSION_G = "4.1", APP_DATE_G = "09/09/2026";
+  var APP_VERSION_G = "4.2", APP_DATE_G = "09/09/2026";
   document.title = "MYCenter Prep \u2014 v" + APP_VERSION_G + " \u2014 " + APP_DATE_G;
   function poser(){
     var h = document.getElementById('hdr-version');
