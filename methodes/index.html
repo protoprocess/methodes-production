@@ -1244,7 +1244,7 @@
       </div>
       <div class="rule">
         <div class="rule-col">Col H — Face</div>
-        <div class="rule-arrow"><span class="rule-to">Inchangée</span></div>
+        <div class="rule-arrow"><span class="rule-from">True</span> <span>→</span> <span class="rule-to">T ou B (selon TOP/BOT du nom de fichier)</span> <span class="rule-from">False</span> <span>→</span> <span class="rule-to">non monté</span></div>
       </div>
       <div class="rule">
         <div class="rule-col">Col I — Mirror</div>
@@ -2873,6 +2873,7 @@ document.title = `AOI Converter — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
 
 let sourceData = null;
+let faceFichier = null;
 let convertedRows = [];
 let outputFilename = 'AOI_output.csv';
 
@@ -2905,13 +2906,23 @@ function parseFile(text, filename) {
   const sep = (lines[0].match(/\t/g)||[]).length >= 3 ? '\t' : ',';
 
   sourceData = lines.map(l => l.split(sep).map(c => c.trim().replace(/^"|"$/g,'')));
-  outputFilename = filename.replace(/\.(tsv|csv|txt)$/i, '') + '-AOI.csv';
+  const base = filename.replace(/\.(tsv|csv|txt)$/i, '');
+  outputFilename = base + '-AOI.csv';
+  // v5.0 : face deduite du nom du fichier — TOP -> T, BOT/BOTTOM -> B, sinon null (repli "monter")
+  const hasTop = /(^|[^a-z])top([^a-z]|$)/i.test(base);
+  const hasBot = /(^|[^a-z])bot(tom)?([^a-z]|$)/i.test(base);
+  faceFichier = (hasTop && !hasBot) ? 'T' : (hasBot && !hasTop) ? 'B' : null;
 
   document.getElementById('aoi-drop-zone').classList.add('loaded');
   document.getElementById('aoi-filename').textContent = filename;
   document.getElementById('aoi-filename').classList.remove('hidden');
   document.getElementById('aoi-btn-run').disabled = false;
-  document.getElementById('aoi-run-hint').textContent = `${lines.length} lignes chargées — prêt à convertir`;
+  const infoFace = faceFichier
+    ? `face ${faceFichier === 'T' ? 'TOP' : 'BOT'} détectée dans le nom → colonne ${faceFichier}`
+    : 'face non détectée dans le nom (ni TOP ni BOT) → la colonne restera « monter »';
+  const hint = document.getElementById('aoi-run-hint');
+  hint.textContent = `${lines.length} lignes chargées — ${infoFace}`;
+  hint.style.color = faceFichier ? '' : 'var(--amber)';
 }
 
 // ── Conversion ────────────────────────────────────────────────────────────────
@@ -2934,7 +2945,7 @@ function runConvert() {
     const rotRaw = parseFloat(cols[6]) || 0;
     const rot    = rotRaw / 1000 - 90;
     const faceRaw = (cols[7] || '').trim().toLowerCase();
-    const face = faceRaw === 'true' ? 'monter' : faceRaw === 'false' ? 'non monté' : (cols[7] || '').trim();
+    const face = faceRaw === 'true' ? (faceFichier || 'monter') : faceRaw === 'false' ? 'non monté' : (cols[7] || '').trim();
 
     if (!ref) return;
 
@@ -3027,7 +3038,7 @@ window.aoi_runConvert = runConvert;
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
         type: SIG_TYPE, description: desc, auteur: auteur,
-        appli: APPLI + ' / ' + (window.PP_ONGLET === 'pane-exp' ? 'Expert' : window.PP_ONGLET === 'pane-aoi' ? 'AOI' : 'MYCenter Prep'), version: '4.4'
+        appli: APPLI + ' / ' + (window.PP_ONGLET === 'pane-exp' ? 'Expert' : window.PP_ONGLET === 'pane-aoi' ? 'AOI' : 'MYCenter Prep'), version: '5.0'
       })
     }).then(function(r){
       if(!r.ok) throw new Error('HTTP ' + r.status);
@@ -3043,7 +3054,7 @@ window.aoi_runConvert = runConvert;
 <script>
 /* ---- onglets Methodes v4.0 ---- */
 (function(){
-  var APP_VERSION_G = "4.4", APP_DATE_G = "09/09/2026";
+  var APP_VERSION_G = "5.0", APP_DATE_G = "09/09/2026";
   document.title = "MYCenter Prep \u2014 v" + APP_VERSION_G + " \u2014 " + APP_DATE_G;
   function poser(){
     var h = document.getElementById('hdr-version');
