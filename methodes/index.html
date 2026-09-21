@@ -283,6 +283,11 @@
     gap: 10px;
   }
 
+  .cmp-alert { margin-top:12px; padding:10px 12px; background:var(--surface2); border:1px solid var(--border); border-left:3px solid var(--red-badge); border-radius:var(--radius); font-size:12px; line-height:1.5; }
+  .cmp-alert.hidden { display:none; }
+  .cmp-alert-t { color:var(--red); font-weight:600; }
+  .cmp-alert-l { color:var(--text); }
+  .cmp-alert-h { color:var(--text3); }
   .btn-run:disabled {
     background: var(--surface2);
     color: var(--text3);
@@ -1030,6 +1035,7 @@
       <div class="stat"><div class="stat-val" id="cmp-total">45</div><div class="stat-lbl">Composants</div></div>
       <div class="stat"><div class="stat-val" id="cmp-smt">45</div><div class="stat-lbl">SMT (TOP+BOT)</div></div>
     </div>
+    <div class="cmp-alert hidden" id="cmp-alert"></div>
   </div>
 
   <!-- Options -->
@@ -1338,8 +1344,8 @@
 <script>
 /* ---------- version ---------- */
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
-const APP_VERSION = "3.9"; // v3.9 : filet stratégie 1→auto + face Swapped (*)  — CADSTAR, client Pfeiffer Vacuum
-const APP_DATE = "03/09/2026";
+const APP_VERSION = "3.10"; // v3.10 : en-tête "X Pos"/"Y Pos" coupé par tabulation (eCADSTAR, HORIBA) + alerte fichier PnP mal lu (bloque la génération)
+const APP_DATE = "21/09/2026";
 document.title = `MYCenter Prep — Automatisation BOM + PnP — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
 
@@ -1925,6 +1931,20 @@ function parseCMP(text, filename) {
         return;
       }
 
+      // v3.10 — En-têtes coupés par le séparateur (eCADSTAR, HORIBA) :
+      // "X<TAB>Pos<TAB>Y<TAB>Pos" = 2 colonnes réelles, lues comme 4.
+      // Si l'en-tête compte plus de colonnes remplies que les données,
+      // on recolle "X"+"Pos" → "X Pos" (même principe que "Part ID" Proteus).
+      if (sep !== 'spaces') {
+        const nbRemplies = l => splitLine(l, sep).filter(c => c !== '').length;
+        const dl = lines.slice(headerIdx+1).find(l => l.trim() && looksLikeData(splitLine(l, sep)));
+        if (dl && nbRemplies(lines[headerIdx]) > nbRemplies(dl)) {
+          const sepRe = sep === '\t' ? '\t+' : '\\' + sep + '+';
+          lines[headerIdx] = lines[headerIdx].replace(
+            new RegExp('\\b(X|Y)' + sepRe + '(Pos|Position|Loc|Location)\\b', 'gi'), '$1 $2');
+        }
+      }
+
       // Première ligne de données après l'en-tête (pour comparer les comptes de colonnes)
       const firstDataLine = lines.slice(headerIdx+1).find(l => l.trim() && !/^[=\-]{4,}/.test(l.trim())) || '';
       const fixedWidth = isFixedWidth(lines[headerIdx], sep, firstDataLine);
@@ -1941,8 +1961,8 @@ function parseCMP(text, filename) {
       }
 
       const iRef  = findCol('refdes','reference','designator','component','ref','repere','repère',/^part$/,/^id$/);
-      const iX    = findCol('center x','center-x','mid x','mid-x','pos x','pos-x','posx','symbol x','symbol-x',/^x$/);
-      const iY    = findCol('center y','center-y','mid y','mid-y','pos y','pos-y','posy','symbol y','symbol-y',/^y$/);
+      const iX    = findCol('x pos','x position','center x','center-x','mid x','mid-x','pos x','pos-x','posx','symbol x','symbol-x',/^x$/);
+      const iY    = findCol('y pos','y position','center y','center-y','mid y','mid-y','pos y','pos-y','posy','symbol y','symbol-y',/^y$/);
       const iRot  = findCol('rotation','rotate','angle','rot','orientation');
       const iFace = findCol('layer','side','face','tb','top bot','board side','pcb side');
       const iFaceFb = iFace<0
@@ -2026,12 +2046,42 @@ function parseCMP(text, filename) {
 }
 
 
+// v3.10 — Contrôle de santé du fichier PnP : un fichier mal lu ne doit
+// jamais passer en silence (Y ou rotations à 0 partout, aucune face).
+function cmpDefauts(cmp) {
+  const d = [];
+  if (!cmp || !cmp.rows || !cmp.rows.length) return d;
+  const r = cmp.rows;
+  if (r.length >= 2 && r.every(x => !x.x)) d.push('Toutes les coordonnées X valent 0');
+  if (r.length >= 2 && r.every(x => !x.y)) d.push('Toutes les coordonnées Y valent 0');
+  if (r.length >= 10 && r.every(x => !x.rot)) d.push('Toutes les rotations valent 0');
+  if (!r.some(x => x.face === 'TOP' || x.face === 'BOT')) d.push('Aucune face TOP/BOT reconnue');
+  return d;
+}
+
 function checkReady() {
-  const ready = state.lumi && state.cmp;
+  const defauts = cmpDefauts(state.cmp);
+  const box = document.getElementById('cmp-alert');
+  if (box) {
+    box.classList.toggle('hidden', !defauts.length);
+    box.innerHTML = '';
+    if (defauts.length) {
+      const t = document.createElement('div'); t.className = 'cmp-alert-t';
+      t.textContent = 'Fichier pick and place mal lu — ne pas utiliser';
+      const l = document.createElement('div'); l.className = 'cmp-alert-l';
+      l.textContent = defauts.join(' · ');
+      const h = document.createElement('div'); h.className = 'cmp-alert-h';
+      h.textContent = "Vérifie l'en-tête du fichier ou signale-le.";
+      box.append(t, l, h);
+    }
+  }
+  const ready = state.lumi && state.cmp && !defauts.length;
   document.getElementById('btn-run').disabled = !ready;
-  document.getElementById('run-hint').textContent = ready
-    ? 'Les 2 fichiers sont chargés — prêt à générer'
-    : 'Chargez les 2 fichiers pour continuer';
+  document.getElementById('run-hint').textContent = defauts.length
+    ? 'Génération bloquée : fichier pick and place mal lu'
+    : ready
+      ? 'Les 2 fichiers sont chargés — prêt à générer'
+      : 'Chargez les 2 fichiers pour continuer';
   if (ready) setStep(2);
 }
 
@@ -3054,7 +3104,7 @@ window.aoi_runConvert = runConvert;
 <script>
 /* ---- onglets Methodes v4.0 ---- */
 (function(){
-  var APP_VERSION_G = "5.1", APP_DATE_G = "09/09/2026";
+  var APP_VERSION_G = "5.2", APP_DATE_G = "21/09/2026";
   document.title = "MYCenter Prep \u2014 v" + APP_VERSION_G + " \u2014 " + APP_DATE_G;
   function poser(){
     var h = document.getElementById('hdr-version');
