@@ -1344,8 +1344,8 @@
 <script>
 /* ---------- version ---------- */
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
-const APP_VERSION = "3.11"; // v3.10 : en-tête "X Pos"/"Y Pos" coupé par tabulation (eCADSTAR, HORIBA) + alerte fichier PnP mal lu (bloque la génération)
-const APP_DATE = "21/09/2026";
+const APP_VERSION = "3.12"; // v3.12 : vrai en-tête choisi par score (cartouche Altium "PCB Reference") — v3.10 : en-tête "X Pos"/"Y Pos" coupé par tabulation + alerte fichier PnP mal lu
+const APP_DATE = "24/09/2026";
 document.title = `MYCenter Prep — Automatisation BOM + PnP — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
 
@@ -1832,6 +1832,19 @@ function parseCMP(text, filename) {
         sep = detectSep(proteusLine);
       }
 
+      // v3.12 — Plusieurs lignes peuvent ressembler a un en-tete (cartouche Altium
+      // « PCB Reference » avant le vrai tableau). On note chaque candidate sur les
+      // colonnes utiles et on garde la meilleure, au lieu de prendre la premiere.
+      function scoreHeader(cols) {
+        const h = cols.map(c => c.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
+        const a = (re) => h.some(c => re.test(c)) ? 1 : 0;
+        return a(/refdes|designator|^ref$|^part$|component|repere/) +
+               2*a(/center *x|pos *x|mid *x|^x$|^x pos$|ref *x/) +
+               2*a(/center *y|pos *y|mid *y|^y$|^y pos$|ref *y/) +
+               a(/rotation|^rot$|angle/) + a(/layer|side|face/);
+      }
+      let meilleurScore = 0;
+
       if (headerIdx < 0) {
         for (let i=0; i<Math.min(40,lines.length); i++) {
           const line=lines[i].trim();
@@ -1839,13 +1852,15 @@ function parseCMP(text, filename) {
           if (!HDR.test(line)) continue;
           const s=detectSep(lines[i]);
           if (splitLine(lines[i],s).length < 3) continue;
+          let okData=false;
           for (let j=i+1; j<Math.min(i+8,lines.length); j++) {
             if (!lines[j].trim()) continue;
-            if (looksLikeData(splitLine(lines[j],s))) {
-              headerIdx=i; sep=s; break;
-            }
+            if (looksLikeData(splitLine(lines[j],s))) { okData=true; break; }
           }
-          if (headerIdx>=0) break;
+          if (!okData) continue;
+          const sc = scoreHeader(splitLine(lines[i],s));
+          if (sc > meilleurScore) { meilleurScore=sc; headerIdx=i; sep=s; }
+          if (sc >= 4) break;
         }
       }
 
@@ -3104,7 +3119,7 @@ window.aoi_runConvert = runConvert;
 <script>
 /* ---- onglets Methodes v4.0 ---- */
 (function(){
-  var APP_VERSION_G = "5.2", APP_DATE_G = "21/09/2026";
+  var APP_VERSION_G = "5.3", APP_DATE_G = "24/09/2026";
   document.title = "MYCenter Prep \u2014 v" + APP_VERSION_G + " \u2014 " + APP_DATE_G;
   function poser(){
     var h = document.getElementById('hdr-version');
