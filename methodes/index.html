@@ -1344,8 +1344,8 @@
 <script>
 /* ---------- version ---------- */
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
-const APP_VERSION = "3.12"; // v3.12 : vrai en-tête choisi par score (cartouche Altium "PCB Reference") — v3.10 : en-tête "X Pos"/"Y Pos" coupé par tabulation + alerte fichier PnP mal lu
-const APP_DATE = "24/09/2026";
+const APP_VERSION = "3.13"; // v3.13 : rapport « Pick and Place » eCADSTAR (SEFRAM) lu nativement, colonnes comptées depuis la fin — v3.12 : vrai en-tête choisi par score (cartouche Altium "PCB Reference") — v3.10 : en-tête "X Pos"/"Y Pos" coupé par tabulation + alerte fichier PnP mal lu
+const APP_DATE = "30/09/2026";
 document.title = `MYCenter Prep — Automatisation BOM + PnP — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
 
@@ -1637,12 +1637,57 @@ function parseCMP(text, filename) {
     let rows = [];
 
     // ════════════════════════════════════════════════════════════════════════
+    // STRATÉGIE E (v3.13) : rapport « Pick and Place » eCADSTAR (Zuken)
+    // Reconnu par : « Pick and Place » + « eCADSTAR » dans les 12 premières
+    // lignes, puis une ligne d'en-tête Ref … Side … Angle.
+    // Le nombre de colonnes VARIE d'une ligne à l'autre (le footprint contient
+    // parfois un espace devenu séparateur : « CMS-0603 (Pad_36x42) ») → on ne
+    // peut pas compter depuis le début. Seule chose stable : Ref en premier,
+    // et …, X, Y, Side, [Height,] Angle en FIN de ligne → on compte depuis la fin.
+    // Séparateur indifférent (virgule après passage Excel, tabulation, espaces).
+    // Face : TOP / BOTTOM → normFace. Cas SEFRAM 7180007006-D1, 30/09/2026.
+    // ════════════════════════════════════════════════════════════════════════
+    {
+      const head = lines.slice(0, 12).join('\n');
+      const isEcad = /pick\W+and\W+place/i.test(head) && /e?cadstar/i.test(head);
+      let hIdx = -1, sepE = null, hTok = [];
+      if (isEcad) {
+        for (let i = 0; i < Math.min(30, lines.length); i++) {
+          const sp = detectSep(lines[i]);
+          const tok = splitLine(lines[i], sp).map(c => c.trim()).filter(c => c !== '');
+          if (tok.length >= 5 && /^ref(des)?$/i.test(tok[0])
+              && tok.some(t => /^side$/i.test(t)) && tok.some(t => /^angle$/i.test(t))) {
+            hIdx = i; sepE = sp; hTok = tok; break;
+          }
+        }
+      }
+      if (hIdx >= 0) {
+        // distances depuis la FIN de l'en-tête (1 = dernière colonne)
+        const dSide  = hTok.length - hTok.findIndex(t => /^side$/i.test(t));
+        const dAngle = hTok.length - hTok.findIndex(t => /^angle$/i.test(t));
+        const num = v => parseFloat((v||'').replace(',','.').replace(/[a-zA-Z]+$/,'')) || 0;
+        for (let i = hIdx + 1; i < lines.length; i++) {
+          const ln = lines[i]; if (!ln.trim() || ln.trim().startsWith('---')) continue;
+          const cols = splitLine(ln, sepE).map(c => c.trim()).filter(c => c !== '');
+          if (cols.length < dSide + 2) continue;
+          const ref = cols[0];
+          if (!/^[A-Z]/i.test(ref)) continue;
+          const n = cols.length;
+          const side = cols[n - dSide], y = cols[n - dSide - 1], x = cols[n - dSide - 2], ang = cols[n - dAngle];
+          if (!/^-?\d/.test(x) || !/^-?\d/.test(y)) continue;
+          rows.push({ ref, x: num(x), y: num(y), rot: Math.round(num(ang)) || 0, face: normFace(side), ipn: '' });
+        }
+        if (rows.length) console.info('Stratégie E (eCADSTAR) :', rows.length, 'lignes');
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
     // STRATÉGIE 0 : Format défini dans la base clients (GSheet)
     // ════════════════════════════════════════════════════════════════════════
     // Client détecté uniquement depuis la BOM Luminovo (pas depuis le CMP)
     // Un client peut avoir PLUSIEURS formats définis (plusieurs lignes GSheet) :
     // on les essaie tous et on garde le premier qui produit des résultats.
-    const clientFormats = state.matchedClient ? getClientCMPFormats(state.matchedClient.nom) : [];
+    const clientFormats = (rows.length === 0 && state.matchedClient) ? getClientCMPFormats(state.matchedClient.nom) : [];
     let strategyZeroRows = [];
 
     for (const clientFormat of clientFormats) {
@@ -1727,7 +1772,7 @@ function parseCMP(text, filename) {
       if (tryRows.length > 0) break;
     }
 
-    rows = strategyZeroRows;
+    if (strategyZeroRows.length) rows = strategyZeroRows;
 
     if (clientFormats.length > 0) {
       // Si aucun format n'a donné de résultats → fallback détection automatique
@@ -1757,7 +1802,7 @@ function parseCMP(text, filename) {
       l.includes('Component') && (l.includes('List') || l.includes('Report'))
     );
 
-    if (isMYCenter) {
+    if (isMYCenter && rows.length === 0) {
       const dashIdx = lines.findIndex(l => l.trim().startsWith('---'));
       const dataStart = dashIdx >= 0 ? dashIdx+1 : 10;
       for (let i=dataStart; i<lines.length; i++) {
