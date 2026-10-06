@@ -1087,14 +1087,11 @@
       <button class="btn-dl secondary" id="btn-dl-csv" onclick="downloadCSV()"><i class="ti ti-download" aria-hidden="true"></i> PnP_CLI_[projet].csv</button>
     </div>
 
-    <div id="unmatched-section" class="">
-      <div class="section-title">Composants sans correspondance BOM</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Ces repères sont présents dans les centroïdes mais absents du Luminovo (composants THT, fiduciaux, ou manquants dans le sourcing).</div>
-      <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:6px">
-        <table class="unmatched-table">
-          <thead><tr><th>Repère</th><th>IPN CMP</th><th>Face</th></tr></thead>
-          <tbody id="unmatched-tbody"><tr><td>C5</td><td>—</td><td>TOP</td></tr><tr><td>C3</td><td>—</td><td>TOP</td></tr><tr><td>FID1</td><td>—</td><td>TOP</td></tr><tr><td>FID2</td><td>—</td><td>TOP</td></tr><tr><td>FID3</td><td>—</td><td>TOP</td></tr><tr><td>J1</td><td>—</td><td>TOP</td></tr></tbody>
-        </table>
+    <div id="unmatched-section" class="hidden">
+      <div class="section-title" style="color:var(--amber)"><i class="ti ti-alert-circle" style="margin-right:6px"></i>À vérifier — MANQUANT BOM</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Ces repères sont dans le fichier PnP mais absents de la BOM Luminovo (THT, fiduciaux, ou oubliés dans le sourcing).</div>
+      <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:12px;background:var(--surface2)">
+        <div id="unmatched-refs" style="font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--amber);word-break:break-word"></div>
       </div>
     </div>
 
@@ -1344,8 +1341,8 @@
 <script>
 /* ---------- version ---------- */
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
-const APP_VERSION = "3.13"; // v3.13 : rapport « Pick and Place » eCADSTAR (SEFRAM) lu nativement, colonnes comptées depuis la fin — v3.12 : vrai en-tête choisi par score (cartouche Altium "PCB Reference") — v3.10 : en-tête "X Pos"/"Y Pos" coupé par tabulation + alerte fichier PnP mal lu
-const APP_DATE = "30/09/2026";
+const APP_VERSION = "3.14"; // v3.14 : rapport Cadence Allegro « Placed Component Report » (REFDES/SYM_X/SYM_Y) lu — v3.13 : rapport « Pick and Place » eCADSTAR (SEFRAM) lu nativement, colonnes comptées depuis la fin — v3.12 : vrai en-tête choisi par score (cartouche Altium "PCB Reference") — v3.10 : en-tête "X Pos"/"Y Pos" coupé par tabulation + alerte fichier PnP mal lu
+const APP_DATE = "06/10/2026";
 document.title = `MYCenter Prep — Automatisation BOM + PnP — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
 
@@ -1798,7 +1795,11 @@ function parseCMP(text, filename) {
     // Structure fixe : TAB | REF(1) | X(2) | Y(3) | ROT(4) | FACE(5) | IPN(6)
     // La colonne FACE n'a pas toujours un nom dans l'en-tête
     // ════════════════════════════════════════════════════════════════════════
-    const isMYCenter = lines.slice(0,5).some(l =>
+    // v3.14 — Rapport Cadence Allegro « Placed Component Report » (REFDES … SYM_X SYM_Y
+    // SYM_ROTATE SYM_MIRROR) : contient aussi « Component » + « Report » mais n'est PAS
+    // du MYCenter natif → on l'écarte ici, la détection auto (stratégie 2) le lit. Cas ADEC111290.
+    const isCadence = lines.slice(0,15).some(l => /^REFDES\b/i.test(l.trim()) && /SYM_X/i.test(l));
+    const isMYCenter = !isCadence && lines.slice(0,5).some(l =>
       l.includes('Component') && (l.includes('List') || l.includes('Report'))
     );
 
@@ -1884,9 +1885,9 @@ function parseCMP(text, filename) {
         const h = cols.map(c => c.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
         const a = (re) => h.some(c => re.test(c)) ? 1 : 0;
         return a(/refdes|designator|^ref$|^part$|component|repere/) +
-               2*a(/center *x|pos *x|mid *x|^x$|^x pos$|ref *x/) +
-               2*a(/center *y|pos *y|mid *y|^y$|^y pos$|ref *y/) +
-               a(/rotation|^rot$|angle/) + a(/layer|side|face/);
+               2*a(/center *x|pos *x|mid *x|^x$|^x pos$|ref *x|^sym *x$/) +
+               2*a(/center *y|pos *y|mid *y|^y$|^y pos$|ref *y|^sym *y$/) +
+               a(/rotation|^rot$|angle|rotate/) + a(/layer|side|face|mirror/);
       }
       let meilleurScore = 0;
 
@@ -2021,8 +2022,8 @@ function parseCMP(text, filename) {
       }
 
       const iRef  = findCol('refdes','reference','designator','component','ref','repere','repère',/^part$/,/^id$/);
-      const iX    = findCol('x pos','x position','center x','center-x','mid x','mid-x','pos x','pos-x','posx','symbol x','symbol-x',/^x$/);
-      const iY    = findCol('y pos','y position','center y','center-y','mid y','mid-y','pos y','pos-y','posy','symbol y','symbol-y',/^y$/);
+      const iX    = findCol('x pos','x position','center x','center-x','mid x','mid-x','pos x','pos-x','posx','symbol x','symbol-x','sym x',/^x$/);
+      const iY    = findCol('y pos','y position','center y','center-y','mid y','mid-y','pos y','pos-y','posy','symbol y','symbol-y','sym y',/^y$/);
       const iRot  = findCol('rotation','rotate','angle','rot','orientation');
       const iFace = findCol('layer','side','face','tb','top bot','board side','pcb side');
       const iFaceFb = iFace<0
@@ -2265,9 +2266,7 @@ function runProcess() {
   // Unmatched table
   if (unmatched.length > 0) {
     document.getElementById('unmatched-section').classList.remove('hidden');
-    document.getElementById('unmatched-tbody').innerHTML = unmatched.map(r =>
-      `<tr><td>${r.ref}</td><td>${r.ipn || '—'}</td><td>${r.face}</td></tr>`
-    ).join('');
+    document.getElementById('unmatched-refs').textContent = unmatched.map(r => r.ref).join(', ');
   }
 
   document.getElementById('results').classList.remove('hidden');
@@ -2298,7 +2297,8 @@ function downloadXLSX() {
 function downloadCSV() {
   const { cliRows } = state.result;
   const csv = cliRows.map(r => r.join('\t')).join('\n');
-  const blob = new Blob([csv], { type: 'text/plain;charset=utf-8' });
+  // v5.6 — BOM UTF-8 (\ufeff) : LibreOffice/Excel reconnaissent l'encodage sans demander
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `PnP_CLI_${state.projectName}.csv`;
@@ -3164,7 +3164,7 @@ window.aoi_runConvert = runConvert;
 <script>
 /* ---- onglets Methodes v4.0 ---- */
 (function(){
-  var APP_VERSION_G = "5.3", APP_DATE_G = "24/09/2026";
+  var APP_VERSION_G = "5.6", APP_DATE_G = "06/10/2026";
   document.title = "MYCenter Prep \u2014 v" + APP_VERSION_G + " \u2014 " + APP_DATE_G;
   function poser(){
     var h = document.getElementById('hdr-version');
