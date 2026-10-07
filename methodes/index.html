@@ -3491,13 +3491,19 @@ const CMP_CORE = (() => {
     if (hi < 0) throw new Error('BOM client : je ne trouve pas la ligne d\'en-tête (colonne des repères et colonne Valeur ou MPN).');
     // remarques écrites par le client au-dessus du tableau
     const notes = aoa.slice(0, hi).map(r => (r || []).map(norm).filter(Boolean).join(' — ')).filter(Boolean);
+    // colonnes pouvant contenir une référence de pièce (MPN, 2e source, Comment, réf. distributeur…)
+    const head = (aoa[hi] || []).map(norm);
+    const CAND_RE = /mpn|part ?n(umber|o)|p\/n|\bpn\b|comment|ref(erence)? ?(fab|constr|manuf)|manufacturer ?(part|ref)|mfr|mfg|source|altern|\balt\b|equivalent|supplier ?part|order ?(code|n)|digi|mouser|farnell|rs ?(pro|comp)|tme\b|value|valeur/i;
+    const SKIP = [map.ref, map.qty, map.fp, map.desc, map.dnp, map.manuf, map.tol, map.ppm, map.volt, map.diel];
+    const candCols = head.map((h, i) => ({ h, i })).filter(x => x.h && !SKIP.includes(x.i) && (x.i === map.mpn || CAND_RE.test(low(x.h))));
     const rows = [];
     aoa.slice(hi + 1).forEach((r, i) => {
       const g = k => map[k] != null ? norm(r[map[k]]) : '';
       const refs = splitRefs(g('ref'));
       if (!refs.length || refs[0] === 'PCB') return; // le circuit nu n'est pas un composant
       rows.push({ idx: rows.length, line: hi + 2 + i, refs, qty: g('qty'), value: g('value'), fp: g('fp'), mpn: g('mpn'),
-        manuf: g('manuf'), tol: g('tol'), ppm: g('ppm'), volt: g('volt'), diel: g('diel'), desc: g('desc'), dnp: g('dnp') });
+        manuf: g('manuf'), tol: g('tol'), ppm: g('ppm'), volt: g('volt'), diel: g('diel'), desc: g('desc'), dnp: g('dnp'),
+        cands: candCols.map(x => ({ col: x.h, val: norm(r[x.i]), isMpn: x.i === map.mpn, isValue: x.i === map.value })).filter(x => x.val && x.val !== '*') });
     });
     return { rows, cols: map, notes };
   }
@@ -3659,6 +3665,19 @@ const CMP_CORE = (() => {
     }
   }
 
+  // toutes les références citées sur la ligne client, comparées à notre MPN
+  function matchCands(c, l) {
+    const all = (c.cands || []).slice().sort((x, y) => (y.isMpn ? 1 : 0) - (x.isMpn ? 1 : 0));
+    const refs = all.filter((x, i, a) => a.findIndex(y => mpnKey(y.val) === mpnKey(x.val)) === i);
+    let ok = null, warn = null;
+    refs.forEach(x => {
+      const m = compareMpn(x.val, l.mpn);
+      if (m.level === 'ok' && (!ok || (m.how === 'mpn' && ok.how !== 'mpn') || (x.isMpn && !ok.cand.isMpn && m.how === ok.how))) ok = Object.assign({ cand: x }, m);
+      else if (m.level === 'warn' && !warn) warn = Object.assign({ cand: x }, m);
+    });
+    return { ok, warn, refs: refs.filter(x => !x.isValue || x.isMpn) };
+  }
+
   // ---------- Comparaison globale ----------
   function compare(clientRows, lumiRows, notes) {
     const pn = parseNotes(notes);
@@ -3672,13 +3691,18 @@ const CMP_CORE = (() => {
       c.refs.forEach(r => { seen.add(r); const l = lumiByRef.get(r) || null; const k = l ? l.idx : -1;
         if (!groups.has(k)) groups.set(k, { l, refs: [] }); groups.get(k).refs.push(r); });
       groups.forEach(({ l, refs }) => {
+        let cm = null;
         const out = { client: c, lumi: l, refs, err: [], warn: [], ok: [], notes: [], how: null };
         const kind = refKind(refs[0]);
         if (dnp) { out.warn.push('Marqué non câblé (DNP) chez le client'); if (l) out.warn.push('… mais présent chez nous'); }
         else if (!l) out.warn.push('Repère absent de Luminovo' + (parseVal(c.value, kind) == null && !c.mpn ? ' — valeur non définie dans la BOM client' : ''));
-        else if (c.mpn) {
-          const m = compareMpn(c.mpn, l.mpn);
-          out[m.level].push(m.msg); if (m.level === 'ok') out.how = m.how;
+        else if ((cm = matchCands(c, l)).ok) {
+          out.ok.push(cm.ok.msg + (cm.ok.cand.isMpn ? '' : ' — trouvé dans la colonne « ' + cm.ok.cand.col + ' » : ' + cm.ok.cand.val));
+          out.how = cm.ok.how;
+        } else if (c.mpn || (cm.refs.length && !(kind === 'R' || kind === 'C' || kind === 'L'))) {
+          if (cm.warn) out.warn.push(cm.warn.msg + (cm.warn.cand.isMpn ? '' : ' (colonne « ' + cm.warn.cand.col + ' » : ' + cm.warn.cand.val + ')'));
+          else if (cm.refs.length > 1) out.err.push('Aucune des références du client ne correspond à notre MPN (' + (l.mpn || 'aucun') + '). Le client indique : ' + cm.refs.map(x => x.val + ' (' + x.col + ')').join(' ; '));
+          else { const m = compareMpn(c.mpn || cm.refs[0].val, l.mpn); out[m.level].push(m.msg); }
         } else if (kind === 'R' || kind === 'C' || kind === 'L') {
           const s = checkSpecs(c, l, kind);
           out.err.push(...s.err); out.warn.push(...s.warn); out.notes.push(...s.notes);
@@ -3703,7 +3727,7 @@ const CMP_CORE = (() => {
 
 </script>
 <script>
-/* ---- Onglet Comparateur BOM : interface (v1.0 du comparateur, intégré en MYCenter Prep v5.8) ---- */
+/* ---- Onglet Comparateur BOM : interface (v1.0 du comparateur, intégré en MYCenter Prep v5.7) ---- */
 (function(){
 const $ = id => document.getElementById('cmp-' + id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -3801,7 +3825,8 @@ function clientSide(c) {
   if (!c) return '<div class="cx-side"><div class="cx-cap">Ligne de la BOM client</div><div class="cx-empty">Absent de la BOM client</div></div>';
   return '<div class="cx-side"><div class="cx-cap">Ligne de la BOM client (ligne ' + c.line + ')</div>' + kv([
     ['Valeur', c.value], ['Boîtier', CMP_CORE.parsePkgFootprint(c.fp) || c.fp], ['Fabricant', c.manuf], ['MPN', c.mpn, 1], ['Tension', c.volt],
-    ['Type', c.diel], ['Précision', c.tol], ['Temp.', c.ppm], ['Description', c.desc], ['DNP', c.dnp]]) + '</div>';
+    ['Type', c.diel], ['Précision', c.tol], ['Temp.', c.ppm], ['Description', c.desc], ['DNP', c.dnp]]
+    .concat((c.cands || []).filter(x => !x.isMpn && !x.isValue && x.val !== c.value).map(x => [esc(x.col), x.val, 1]))) + '</div>';
 }
 function lumiSide(l) {
   if (!l) return '<div class="cx-side"><div class="cx-cap">Chez nous (Luminovo)</div><div class="cx-empty">Absent de Luminovo</div></div>';
