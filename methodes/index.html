@@ -962,11 +962,18 @@
   <div style="flex:1"></div>
   <span class="hdr-note" id="hdr-version"></span>
 </header>
+<!-- v5.7 : bandeau affiché seulement si l'appli est ouverte hors du site en ligne -->
+<div id="offline-banner" class="hidden" style="background:var(--blue-bg);border-bottom:1px solid var(--blue);color:var(--text);padding:10px 16px;font-size:13px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+  <i class="ti ti-alert-triangle" style="color:var(--blue);font-size:18px"></i>
+  <span><b style="color:var(--blue)">Version hors ligne</b> — fichier ouvert depuis le PC. BOM, PnP et CSV fonctionnent, mais <b>les étiquettes de l'étape 6 ne fonctionnent pas</b>.</span>
+  <a href="https://protoprocess.github.io/methodes-production/methodes/" style="margin-left:auto;padding:6px 13px;background:var(--blue);color:#fff;border-radius:var(--radius);font-size:12px;font-weight:500;text-decoration:none">Ouvrir la version en ligne</a>
+</div>
 
 <nav class="tabs">
   <button class="active" data-pane="pane-mcp">MYCenter Prep</button>
   <button data-pane="pane-exp">Expert</button>
   <button data-pane="pane-aoi">AOI</button>
+  <button data-pane="pane-cmp">Comparateur BOM</button>
 </nav>
 
 
@@ -1335,6 +1342,125 @@
 </div>
 
 
+
+<!-- ===== Onglet Comparateur BOM (BOM client ↔ export Luminovo) — ajouté en v5.8 ===== -->
+<style>
+#pane-cmp .cx-wrap{max-width:min(96vw,1400px);margin:0 auto;padding:22px 16px 60px}
+#pane-cmp .cx-intro{font-size:13px;color:var(--text2);margin:0 0 14px}
+#pane-cmp .cx-blk{background:var(--surface2);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:16px}
+#pane-cmp .cx-blk h2{margin:0 0 12px;font-size:15px;font-weight:500;display:flex;align-items:center;gap:8px}
+#pane-cmp .cx-blk.cx-err{border-left:3px solid var(--red-badge);border-radius:0 var(--radius-lg) var(--radius-lg) 0}
+#pane-cmp .cx-blk.cx-warn{border-left:3px solid var(--amber-badge);border-radius:0 var(--radius-lg) var(--radius-lg) 0}
+#pane-cmp .cx-blk.cx-ok{border-left:3px solid var(--green-badge);border-radius:0 var(--radius-lg) var(--radius-lg) 0}
+#pane-cmp .cx-blk.cx-note{border-left:3px solid var(--pp-blue);border-radius:0 var(--radius-lg) var(--radius-lg) 0}
+#pane-cmp .cx-err h2{color:var(--red)} #pane-cmp .cx-warn h2{color:var(--amber)} #pane-cmp .cx-ok h2{color:var(--green)} #pane-cmp .cx-note h2{color:var(--pp-blue)}
+#pane-cmp .cx-drops{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+#pane-cmp .cx-drop{border:1px dashed var(--border2);border-radius:var(--radius-lg);padding:18px;text-align:center;cursor:pointer;background:var(--surface);transition:border-color .15s}
+#pane-cmp .cx-drop:hover,#pane-cmp .cx-drop.cx-over{border-color:var(--blue)}
+#pane-cmp .cx-drop.cx-done{border-style:solid;border-color:var(--green-badge);text-align:left}
+#pane-cmp .cx-drop .cx-t{font-weight:500;margin-bottom:4px;color:var(--text)} #pane-cmp .cx-drop .cx-s{font-size:12px;color:var(--text2)}
+#pane-cmp .cx-drop i{font-size:22px;color:var(--text3)}
+#pane-cmp select{background:var(--surface);color:var(--text);border:0.5px solid var(--border2);border-radius:var(--radius);padding:5px 8px;font-size:13px;max-width:100%}
+#pane-cmp .cx-btn{padding:6px 13px;background:transparent;color:var(--text2);border:0.5px solid var(--border2);border-radius:var(--radius);font-size:12px;cursor:pointer}
+#pane-cmp .cx-btn:hover{color:var(--text);border-color:var(--text3)}
+#pane-cmp .cx-sum{display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;font-size:13px;color:var(--text2)}
+#pane-cmp .cx-sum b{color:var(--text);font-weight:500}
+#pane-cmp .cx-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px}
+#pane-cmp .cx-card{border-radius:var(--radius-lg);padding:12px 16px}
+#pane-cmp .cx-card .cx-l{font-size:12px} #pane-cmp .cx-card .cx-n{font-size:26px;font-weight:500}
+#pane-cmp .cx-card.cx-err{background:var(--red-bg);color:var(--red-badge)}
+#pane-cmp .cx-card.cx-warn{background:var(--amber-bg);color:var(--amber-badge)}
+#pane-cmp .cx-card.cx-ok{background:var(--green-bg);color:var(--green-badge)}
+#pane-cmp .cx-line{border-top:0.5px solid var(--border);padding:14px 0}
+#pane-cmp .cx-line:first-child{border-top:none;padding-top:4px}
+#pane-cmp .cx-refs{font-size:13px;color:var(--text2);margin-bottom:8px}
+#pane-cmp .cx-refs b{color:var(--text);font-weight:500;font-family:var(--mono)}
+#pane-cmp .cx-cmp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+@media(max-width:800px){#pane-cmp .cx-cmp{grid-template-columns:minmax(0,1fr)}}
+#pane-cmp .cx-side{background:var(--surface);border-radius:var(--radius);padding:8px 12px;min-width:0}
+#pane-cmp .cx-cap{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+#pane-cmp table.cx-kv{width:100%;border-collapse:collapse;font-size:13px}
+#pane-cmp table.cx-kv td{padding:2px 0;vertical-align:top}
+#pane-cmp table.cx-kv td:first-child{color:var(--text3);width:96px;padding-right:10px;white-space:nowrap}
+#pane-cmp table.cx-kv td:last-child{color:var(--text);word-break:break-word}
+#pane-cmp .cx-mono{font-family:var(--mono);font-size:12.5px}
+#pane-cmp .cx-why{margin:8px 0 0;padding:0;list-style:none;font-size:13.5px}
+#pane-cmp .cx-why li{display:flex;gap:6px;align-items:flex-start;margin-top:3px}
+#pane-cmp .cx-why li.cx-e{color:var(--red)} #pane-cmp .cx-why li.cx-w{color:var(--amber)} #pane-cmp .cx-why li.cx-i{color:var(--text2)}
+#pane-cmp .cx-okstats{display:flex;flex-wrap:wrap;gap:10px 28px;font-size:13.5px;color:var(--text2);margin-bottom:10px}
+#pane-cmp .cx-okstats b{color:var(--green);font-weight:500;font-size:15px}
+#pane-cmp table.cx-oklist{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px}
+#pane-cmp table.cx-oklist th{text-align:left;color:var(--text3);font-weight:400;padding:6px 8px;border-bottom:0.5px solid var(--border)}
+#pane-cmp table.cx-oklist td{padding:5px 8px;border-bottom:0.5px solid var(--border);vertical-align:top;word-break:break-word;color:var(--text)}
+#pane-cmp .cx-msg{padding:12px 16px;border-radius:var(--radius);background:var(--red-bg);color:var(--red-badge);margin-bottom:16px;display:none}
+#pane-cmp .cx-empty{color:var(--text2);font-size:13px}
+#pane-cmp .cx-notes{margin:0;padding-left:18px;font-size:13.5px;color:var(--text)}
+#pane-cmp .cx-hide{display:none}
+</style>
+<div class="pane" id="pane-cmp">
+<div class="cx-wrap">
+  <p class="cx-intro">Vérifie que les pièces retenues dans Luminovo correspondent à ce que le client demande : MPN, valeur, boîtier, tension, diélectrique, tolérance, ppm et remarques écrites par le client.</p>
+  <div class="cx-msg" id="cmp-msg"></div>
+
+  <section class="cx-blk" id="cmp-filesBlk">
+    <h2><i class="ti ti-files"></i>Fichiers à comparer</h2>
+    <div class="cx-drops">
+      <div class="cx-drop" id="cmp-dropClient">
+        <i class="ti ti-file-upload"></i>
+        <div class="cx-t">BOM du client</div>
+        <div class="cx-s">CSV ou Excel — cliquer ou déposer le fichier ici</div>
+      </div>
+      <div class="cx-drop" id="cmp-dropLumi">
+        <i class="ti ti-file-upload"></i>
+        <div class="cx-t">Export Luminovo (sourcing)</div>
+        <div class="cx-s">Fichier Excel « Luminovo-Sourcing_… » — cliquer ou déposer ici</div>
+      </div>
+    </div>
+    <input type="file" id="cmp-fileClient" accept=".csv,.xlsx,.xls,.txt" class="cx-hide">
+    <input type="file" id="cmp-fileLumi" accept=".xlsx,.xls" class="cx-hide">
+  </section>
+
+  <section class="cx-blk cx-hide" id="cmp-filesSum">
+    <div class="cx-sum">
+      <span><i class="ti ti-file-text"></i> BOM client : <b id="cmp-sumClient"></b></span>
+      <span><i class="ti ti-file-spreadsheet"></i> Luminovo : <b id="cmp-sumLumi"></b></span>
+      <span>Scénario : <select id="cmp-sumSheet"></select></span>
+      <button class="cx-btn" id="cmp-btnEdit"><i class="ti ti-edit"></i> Changer de fichiers</button>
+    </div>
+  </section>
+
+  <div id="cmp-results" class="cx-hide">
+    <section class="cx-blk cx-note cx-hide" id="cmp-notesBlk">
+      <h2><i class="ti ti-notes"></i>Remarques écrites par le client dans son fichier</h2>
+      <ul class="cx-notes" id="cmp-notesList"></ul>
+      <div style="font-size:12px;color:var(--text3);margin-top:8px">Les références et consignes « R1 = 3K3 » sont contrôlées automatiquement ; le reste est à lire.</div>
+    </section>
+
+    <div class="cx-cards">
+      <div class="cx-card cx-err"><div class="cx-l">Erreurs</div><div class="cx-n" id="cmp-nErr">0</div></div>
+      <div class="cx-card cx-warn"><div class="cx-l">À vérifier</div><div class="cx-n" id="cmp-nWarn">0</div></div>
+      <div class="cx-card cx-ok"><div class="cx-l">Conformes</div><div class="cx-n" id="cmp-nOk">0</div></div>
+    </div>
+
+    <section class="cx-blk cx-err">
+      <h2><i class="ti ti-alert-octagon"></i>Erreurs — ce qu'on a ne correspond pas à la demande du client</h2>
+      <div id="cmp-listErr"></div>
+    </section>
+
+    <section class="cx-blk cx-warn">
+      <h2><i class="ti ti-eye-check"></i>À vérifier — proche, incomplet ou impossible à contrôler seul</h2>
+      <div id="cmp-listWarn"></div>
+    </section>
+
+    <section class="cx-blk cx-ok">
+      <h2><i class="ti ti-circle-check"></i>Conformes</h2>
+      <div class="cx-okstats" id="cmp-okStats"></div>
+      <button class="cx-btn" id="cmp-btnOk"><i class="ti ti-list"></i> <span>Voir les lignes conformes</span></button>
+      <div id="cmp-listOk" class="cx-hide"></div>
+    </section>
+  </div>
+</div>
+</div>
 
 <div id="planche"></div>
 
@@ -2608,7 +2734,19 @@ function supRenderTable(alloues) {
   });
 }
 
+// v5.7 — L'attribution n8n n'accepte que les appels venant de protoprocess.github.io (CORS).
+// Ouverte depuis un fichier téléchargé, l'appli ne peut pas l'appeler → message clair au lieu de « Failed to fetch ».
+const APP_EN_LIGNE = location.hostname === 'protoprocess.github.io';
+const APP_URL_EN_LIGNE = 'https://protoprocess.github.io/methodes-production/methodes/';
+if (!APP_EN_LIGNE) document.addEventListener('DOMContentLoaded', () => {
+  const b = document.getElementById('offline-banner'); if (b) b.classList.remove('hidden');
+});
+
 async function supAllocate() {
+  if (!APP_EN_LIGNE) {
+    if (confirm('Les étiquettes ne fonctionnent que depuis la version en ligne.\n\nTu as ouvert le fichier depuis ton PC.\n\nOK = ouvrir la version en ligne (il faudra recharger tes fichiers).')) window.open(APP_URL_EN_LIGNE, '_blank');
+    return;
+  }
   const so = document.getElementById('sup-so').value.trim();
   if (!so) { alert('Renseigner le SO de l\'affaire avant d\'attribuer.'); return; }
   if (!supState.lignes.length) return;
@@ -3148,7 +3286,7 @@ window.aoi_runConvert = runConvert;
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
         type: SIG_TYPE, description: desc, auteur: auteur,
-        appli: APPLI + ' / ' + (window.PP_ONGLET === 'pane-exp' ? 'Expert' : window.PP_ONGLET === 'pane-aoi' ? 'AOI' : 'MYCenter Prep'), version: '5.1'
+        appli: APPLI + ' / ' + (window.PP_ONGLET === 'pane-exp' ? 'Expert' : window.PP_ONGLET === 'pane-aoi' ? 'AOI' : window.PP_ONGLET === 'pane-cmp' ? 'Comparateur BOM' : 'MYCenter Prep'), version: '5.1'
       })
     }).then(function(r){
       if(!r.ok) throw new Error('HTTP ' + r.status);
@@ -3164,7 +3302,7 @@ window.aoi_runConvert = runConvert;
 <script>
 /* ---- onglets Methodes v4.0 ---- */
 (function(){
-  var APP_VERSION_G = "5.6", APP_DATE_G = "06/10/2026";
+  var APP_VERSION_G = "5.8", APP_DATE_G = "07/10/2026"; // v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
   document.title = "MYCenter Prep \u2014 v" + APP_VERSION_G + " \u2014 " + APP_DATE_G;
   function poser(){
     var h = document.getElementById('hdr-version');
@@ -3189,6 +3327,529 @@ window.aoi_runConvert = runConvert;
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', poser);
   else poser();
+})();
+</script>
+<script>
+/* ---- Comparateur BOM : moteur ---- */
+// ===== Comparateur BOM — moteur de comparaison (sans interface) =====
+const CMP_CORE = (() => {
+  const norm = s => (s == null ? '' : String(s)).trim();
+  const low = s => norm(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const isStar = s => /^\*?$/.test(norm(s));
+
+  // ---------- Repères ----------
+  function splitRefs(s) {
+    const out = [];
+    norm(s).split(/[,;\s]+/).filter(Boolean).forEach(tok => {
+      const m = tok.match(/^([A-Za-z_]+)(\d+)-(?:([A-Za-z_]+))?(\d+)$/);
+      if (m && (!m[3] || m[3] === m[1]) && +m[4] >= +m[2] && +m[4] - +m[2] < 500) {
+        for (let i = +m[2]; i <= +m[4]; i++) out.push(m[1].toUpperCase() + i);
+      } else out.push(tok.toUpperCase());
+    });
+    return out;
+  }
+  const refKind = r => { const m = r.match(/^[A-Z]+/); const p = m ? m[0] : '';
+    if (p === 'R') return 'R'; if (p === 'C') return 'C'; if (p === 'L') return 'L'; return p; };
+
+  // ---------- Valeurs ----------
+  const MULT = { p: 1e-12, n: 1e-9, u: 1e-6, m: 1e-3, k: 1e3, g: 1e9, r: 1, '': 1 };
+  function parseVal(raw, kind) {
+    let s = low(raw).replace(/µ|μ/g, 'u').replace(/\s+/g, '').replace(/ohms?|Ω/g, '');
+    if (kind === 'C') s = s.replace(/f$/, ''); if (kind === 'L') s = s.replace(/h$/, '');
+    const m = s.match(/^(\d*)(?:[.,](\d+))?([pnumkgr]?)(\d*)$/);
+    if (!m || (!m[1] && !m[2])) {
+      // forme R : "4k7" mal capturée ? essai "m" = méga pour R
+      return null;
+    }
+    let letter = m[3];
+    if (m[2] && m[4]) return null; // "1.2k3" incohérent
+    const num = parseFloat((m[1] || '0') + '.' + (m[2] || m[4] || '0'));
+    let mult;
+    if (kind === 'R' && letter === 'm' && /M/.test(norm(raw))) mult = 1e6;
+    else if (kind === 'R' && letter === 'm') mult = 1e6; // en BOM R, "2M2" = méga
+    else mult = MULT[letter];
+    if (mult == null) return null;
+    if (kind === 'C' && !letter && num > 0) return null; // "100" sans unité : ambigu
+    return num * mult;
+  }
+  function parseVolt(raw) {
+    const s = low(raw).replace(/\s+/g, '');
+    if (!s || s === '*') return null;
+    let m = s.match(/^(\d+)v(\d+)/); if (m) return parseFloat(m[1] + '.' + m[2]);
+    m = s.match(/^(\d+(?:[.,]\d+)?)(k?)v/); if (m) return parseFloat(m[1].replace(',', '.')) * (m[2] ? 1000 : 1);
+    return null;
+  }
+  const parsePct = raw => { const m = low(raw).match(/(\d+(?:[.,]\d+)?)\s*%/); return m ? parseFloat(m[1].replace(',', '.')) : null; };
+  const parsePpm = raw => { const m = low(raw).match(/(\d+)\s*ppm/); return m ? +m[1] : null; };
+  const DIELS = ['C0G', 'X8R', 'X7R', 'X7S', 'X7T', 'X6S', 'X5R', 'Y5V', 'U2J', 'X7U', 'Z5U'];
+  function parseDiel(raw) {
+    const s = norm(raw).toUpperCase().replace(/\bCOG\b|\bNPO\b|\bNP0\b/g, 'C0G');
+    for (const d of DIELS) if (new RegExp('\\b' + d + '\\b').test(s)) return d;
+    return null;
+  }
+  function parsePkgFootprint(fp) {
+    const m = norm(fp).match(/_(0201|0402|0603|0805|1206|1210|1808|1812|2010|2220|2512|1008|2225)_/);
+    return m ? m[1] : null;
+  }
+  const PKG_RE = /^(0201|0402|0603|0805|1206|1210|1808|1812|2010|2220|2512|1008|2225)$/;
+
+  // ---------- Fiche "chez nous" (Luminovo) ----------
+  function parseIPN(ipn, kind) {
+    const parts = norm(ipn).toUpperCase().split('-');
+    if (!parts[0] || parts[0][0] !== kind) return null;
+    const r = { value: parseVal(parts[0].slice(1), kind), pkg: null, volt: null, diel: null, ppm: null };
+    parts.slice(1).forEach(p => {
+      if (PKG_RE.test(p)) r.pkg = p;
+      else if (/^\d+V\d*$/.test(p)) r.volt = parseVolt(p);
+      else if (/^\d+PPM$/.test(p)) r.ppm = parseInt(p);
+      else if (DIELS.includes(p.replace('NP0', 'C0G'))) r.diel = p.replace('NP0', 'C0G');
+    });
+    return r.value == null ? null : r;
+  }
+  function parseDesc(desc, kind) {
+    const d = norm(desc);
+    const r = { value: null, volt: null, diel: null, tol: null, ppm: null };
+    let m;
+    if (kind === 'C' && (m = d.match(/(\d+(?:\.\d+)?)\s*(p|n|u|µ|μ)F\b/i))) r.value = parseFloat(m[1]) * MULT[m[2].toLowerCase().replace(/µ|μ/, 'u')];
+    if (kind === 'L' && (m = d.match(/(\d+(?:\.\d+)?)\s*(n|u|µ|μ|m)H\b/i))) r.value = parseFloat(m[1]) * MULT[m[2].toLowerCase().replace(/µ|μ/, 'u')];
+    if (kind === 'R' && (m = d.match(/(\d+(?:\.\d+)?)\s*([kKmMgG])?\s*Ohm/i))) r.value = parseFloat(m[1]) * (m[2] ? { k: 1e3, m: 1e6, g: 1e9 }[m[2].toLowerCase()] : 1);
+    if (kind === 'C' && (m = d.match(/(\d+(?:\.\d+)?)\s*(k?)V\b/i))) r.volt = parseFloat(m[1]) * (m[2] ? 1000 : 1);
+    if (kind === 'C') r.diel = parseDiel(d);
+    if ((m = d.match(/(\d+(?:\.\d+)?)\s*%/))) r.tol = parseFloat(m[1]);
+    if (kind === 'R') r.ppm = parsePpm(d);
+    return r;
+  }
+
+  // ---------- MPN ----------
+  const mpnKey = s => norm(s).toUpperCase().replace(/[\s\-_/,.#+]/g, '');
+  const PACK_SUFFIX = ['T', 'R', 'TR', 'RL', 'RL7', 'REEL', 'REEL7', 'PBF', 'TRPBF', 'TRMPBF', 'CT', '125', '115', '135', 'T1', 'TP', 'E3', 'G', 'ND'];
+  const TVS_RE = /^(SMAJ|SMBJ|SMCJ|SMDJ|P4KE|P6KE|15KE|SA\d|SMF)/;
+  function compareMpn(cl, us) {
+    const a = mpnKey(cl), b = mpnKey(us);
+    if (!b) return { level: 'err', msg: 'Aucun MPN chez nous' };
+    if (a === b) return { level: 'ok', how: 'mpn', msg: 'Même MPN' };
+    if (a.length === b.length && a.slice(0, -1) === b.slice(0, -1) && /[TR]/.test(a.slice(-1)) && /[TR]/.test(b.slice(-1)))
+      return { level: 'ok', how: 'pack', msg: 'Même pièce, autre conditionnement (' + a.slice(-1) + ' → ' + b.slice(-1) + ')' };
+    const [short, long, side] = a.length < b.length ? [a, b, 'us'] : [b, a, 'cl'];
+    if (long.startsWith(short) && short.length >= 4) {
+      const suf = long.slice(short.length);
+      if (PACK_SUFFIX.includes(suf) && side === 'us') return { level: 'ok', how: 'pack', msg: 'Même pièce, autre conditionnement (suffixe ' + suf + ')' };
+      if (PACK_SUFFIX.includes(suf)) return { level: 'warn', msg: 'Le client précise le suffixe « ' + suf + ' », absent chez nous — vérifier fabricant et conditionnement' };
+      if (suf === 'A' && side === 'us' && TVS_RE.test(a)) return { level: 'ok', how: 'pack', msg: 'Version « A » : tolérance de tension plus serrée' };
+      return { level: 'warn', msg: 'MPN proche mais suffixe différent (« ' + suf + ' ») — vérifier que c\'est la même pièce' };
+    }
+    return { level: 'err', msg: 'Autre MPN que celui demandé' };
+  }
+
+  // ---------- Lecture BOM client ----------
+  const COLS = {
+    ref: ['reference', 'references', 'designator', 'designators', 'repere', 'reperes', 'refdes', 'ref des', 'ref.', 'ref'],
+    qty: ['qty', 'quantity', 'quantite', 'qte', 'qt'],
+    value: ['value', 'valeur', 'val'],
+    fp: ['footprint', 'package', 'boitier', 'case', 'empreinte'],
+    mpn: ['mpn', 'manufacturer part number', 'mfr part number', 'mfg part number', 'manufacturer pn', 'mfr pn', 'part number', 'ref fabricant', 'reference fabricant', 'manufacturer reference'],
+    manuf: ['manufacturer', 'fabricant', 'mfr', 'mfg', 'brand', 'marque'],
+    tol: ['precision', 'tolerance', 'tol'],
+    ppm: ['temperature', 'tempco', 'ppm', 'tcr'],
+    volt: ['tension', 'voltage', 'rated voltage', 'volt'],
+    diel: ['type', 'dielectric', 'dielectrique'],
+    desc: ['description', 'desc', 'designation'],
+    dnp: ['dnp', 'do not populate', 'nc', 'non cable', 'not fitted'],
+  };
+  function mapHeader(row) {
+    const h = row.map(low), map = {};
+    for (const [k, syn] of Object.entries(COLS)) {
+      let idx = h.findIndex(x => syn.includes(x));
+      if (idx < 0 && k !== 'dnp' && k !== 'diel' && k !== 'manuf') idx = h.findIndex(x => syn.some(s => s.length > 3 && x.includes(s)));
+      if (idx >= 0 && !Object.values(map).includes(idx)) map[k] = idx;
+    }
+    return map;
+  }
+  const REF_RE = /^[A-Z]{1,4}\d{1,4}([,;\s-]|$)/i;
+  // colonne des repères reconnue par son contenu (quand l'en-tête ne la nomme pas)
+  function refColByContent(aoa, hi, taken) {
+    const body = aoa.slice(hi + 1, hi + 40);
+    let best = -1, bestScore = 0;
+    const width = Math.max(...body.map(r => (r || []).length), 0);
+    for (let c = 0; c < width; c++) {
+      if (taken.includes(c)) continue;
+      const cells = body.map(r => norm((r || [])[c])).filter(Boolean);
+      if (cells.length < 2) continue;
+      const score = cells.filter(v => REF_RE.test(v)).length / cells.length;
+      if (score > bestScore) { bestScore = score; best = c; }
+    }
+    return bestScore >= 0.6 ? best : -1;
+  }
+  function readClient(aoa) {
+    let hi = -1, map = null;
+    for (let i = 0; i < Math.min(aoa.length, 60); i++) {
+      const m = mapHeader(aoa[i] || []);
+      if (m.value == null && m.mpn == null) continue;
+      if (m.ref == null) { const c = refColByContent(aoa, i, Object.values(m)); if (c >= 0) m.ref = c; }
+      if (m.ref != null) { hi = i; map = m; break; }
+    }
+    if (hi < 0) throw new Error('BOM client : je ne trouve pas la ligne d\'en-tête (colonne des repères et colonne Valeur ou MPN).');
+    // remarques écrites par le client au-dessus du tableau
+    const notes = aoa.slice(0, hi).map(r => (r || []).map(norm).filter(Boolean).join(' — ')).filter(Boolean);
+    const rows = [];
+    aoa.slice(hi + 1).forEach((r, i) => {
+      const g = k => map[k] != null ? norm(r[map[k]]) : '';
+      const refs = splitRefs(g('ref'));
+      if (!refs.length || refs[0] === 'PCB') return; // le circuit nu n'est pas un composant
+      rows.push({ idx: rows.length, line: hi + 2 + i, refs, qty: g('qty'), value: g('value'), fp: g('fp'), mpn: g('mpn'),
+        manuf: g('manuf'), tol: g('tol'), ppm: g('ppm'), volt: g('volt'), diel: g('diel'), desc: g('desc'), dnp: g('dnp') });
+    });
+    return { rows, cols: map, notes };
+  }
+  function readLumi(aoa) {
+    const h = (aoa[0] || []).map(low);
+    const ix = n => h.indexOf(n);
+    const c = { ref: ix('designator'), qty: ix('qty'), ipn: ix('approved internal part number'), pkg: ix('package'), mpn: ix('mpn'), desc: ix('description') };
+    if (c.ref < 0 || c.mpn < 0) throw new Error('Export Luminovo : colonnes « Designator » et « MPN » introuvables dans cet onglet.');
+    return aoa.slice(1).map((r, i) => ({ idx: i, refs: splitRefs(r[c.ref]), qty: norm(r[c.qty]),
+      ipn: c.ipn >= 0 ? norm(r[c.ipn]) : '', pkg: c.pkg >= 0 ? norm(r[c.pkg]) : '', mpn: norm(r[c.mpn]), desc: c.desc >= 0 ? norm(r[c.desc]) : '' }))
+      .filter(r => r.refs.length);
+  }
+
+  // ---------- Contrôle par caractéristiques ----------
+  const DIEL_RULES = {
+    C0G: { ok: ['C0G'], note: { X7R: 'COG demandé, X7R chez nous (accepté)' } },
+    X7R: { ok: ['X7R', 'C0G', 'X8R'], warn: ['X7S', 'X7T'] },
+    X7S: { ok: ['X7S', 'X7R', 'C0G', 'X8R'], warn: ['X7T'] },
+    X5R: { ok: ['X5R', 'X6S', 'X7R', 'X7S', 'X7T', 'X8R', 'C0G'] },
+  };
+  const fmtVal = (v, kind) => {
+    if (v == null) return '?';
+    const u = kind === 'R' ? [[1e6, 'M'], [1e3, 'k'], [1, '']] : [[1, ''], [1e-3, 'm'], [1e-6, 'µ'], [1e-9, 'n'], [1e-12, 'p']];
+    if (v === 0) return '0' + (kind === 'R' ? 'Ω' : '');
+    for (const [m, s] of u) if (Math.abs(v) >= m * 0.999) return +(v / m).toPrecision(4) + ' ' + s + (kind === 'R' ? 'Ω' : kind === 'C' ? 'F' : 'H');
+    return +(v / u[u.length - 1][0]).toPrecision(4) + ' ' + u[u.length - 1][1] + (kind === 'C' ? 'F' : 'H');
+  };
+
+  function checkSpecs(c, u, kind) {
+    const res = { err: [], warn: [], ok: [], notes: [] };
+    // valeurs côté client
+    const cv = parseVal(c.value, kind);
+    const cpkg = parsePkgFootprint(c.fp) || (PKG_RE.test(c.fp) ? c.fp : null);
+    const cvolt = parseVolt(c.volt);
+    const cdiel = kind === 'C' ? parseDiel(c.diel) : null;
+    const ctol = isStar(c.tol) ? null : parsePct(c.tol);
+    const cppm = isStar(c.ppm) ? null : parsePpm(c.ppm);
+    // côté nous : description (= le MPN réel) prioritaire, IPN en secours
+    const ipns = norm(u.ipn).split(/[;\n]+/).map(s => s.trim()).filter(Boolean);
+    const ipnP = ipns.map(i => parseIPN(i, kind)).filter(Boolean);
+    const dP = parseDesc(u.desc, kind);
+    const ip = ipnP[0] || {};
+    const us = {
+      value: dP.value != null ? dP.value : ip.value,
+      pkg: PKG_RE.test(u.pkg) ? u.pkg : (ip.pkg || null),
+      volt: dP.volt != null ? dP.volt : ip.volt,
+      diel: dP.diel || ip.diel,
+      tol: dP.tol,
+      ppm: dP.ppm != null ? dP.ppm : ip.ppm,
+    };
+    // cohérence IPN ↔ MPN
+    if (ipns.length > 1) res.warn.push('Plusieurs IPN sur la ligne (' + ipns.join(' / ') + ')');
+    if (ipnP.length) {
+      const diffs = [];
+      if (ip.value != null && dP.value != null && Math.abs(ip.value - dP.value) > Math.max(Math.abs(dP.value) * 0.001, 1e-15)) diffs.push('valeur');
+      if (ip.volt != null && dP.volt != null && ip.volt !== dP.volt) diffs.push('tension (IPN ' + ip.volt + ' V, MPN ' + dP.volt + ' V)');
+      if (ip.diel && dP.diel && ip.diel !== dP.diel) diffs.push('diélectrique (IPN ' + ip.diel + ', MPN ' + dP.diel + ')');
+      if (ip.ppm != null && dP.ppm != null && ip.ppm < dP.ppm) diffs.push('ppm (IPN ' + ip.ppm + ' ppm, MPN ' + dP.ppm + ' ppm)');
+      if (diffs.length) res.warn.push('L\'IPN et le MPN acheté ne disent pas la même chose : ' + diffs.join(', '));
+    }
+    // 1. valeur
+    if (cv == null) res.warn.push('Valeur client illisible (« ' + c.value + ' »)');
+    else if (us.value == null) res.warn.push('Valeur introuvable chez nous (ni IPN ni description)');
+    else if (Math.abs(cv - us.value) > Math.max(Math.abs(cv) * 0.001, 1e-15)) res.err.push('Valeur différente : ' + fmtVal(cv, kind) + ' demandé, ' + fmtVal(us.value, kind) + ' chez nous');
+    else res.ok.push('valeur');
+    // 2. boîtier
+    if (cpkg) {
+      if (!us.pkg) res.warn.push('Boîtier non lisible chez nous (« ' + (u.pkg || 'vide') + ' »)');
+      else if (us.pkg !== cpkg) res.err.push('Boîtier différent : ' + cpkg + ' demandé, ' + us.pkg + ' chez nous');
+      else res.ok.push('boîtier');
+    }
+    // 3. tension
+    if (cvolt != null) {
+      if (us.volt == null) res.warn.push('Tension introuvable chez nous (' + cvolt + ' V demandé)');
+      else if (us.volt < cvolt) res.err.push('Tension trop basse : ' + cvolt + ' V demandé, ' + us.volt + ' V chez nous');
+      else res.ok.push('tension');
+    }
+    // 4. diélectrique
+    if (cdiel) {
+      if (!us.diel) res.warn.push('Diélectrique introuvable chez nous (' + cdiel + ' demandé)');
+      else {
+        const rule = DIEL_RULES[cdiel];
+        if (us.diel === cdiel) res.ok.push('diélectrique');
+        else if (rule && rule.note && rule.note[us.diel]) { res.ok.push('diélectrique'); res.notes.push(rule.note[us.diel]); }
+        else if (rule && rule.ok.includes(us.diel)) { res.ok.push('diélectrique'); res.notes.push(cdiel + ' demandé, ' + us.diel + ' chez nous (meilleur)'); }
+        else if (rule && rule.warn && rule.warn.includes(us.diel)) res.warn.push('Diélectrique proche : ' + cdiel + ' demandé, ' + us.diel + ' chez nous');
+        else if (rule) res.err.push('Diélectrique différent : ' + cdiel + ' demandé, ' + us.diel + ' chez nous');
+        else res.warn.push('Diélectrique différent : ' + cdiel + ' demandé, ' + us.diel + ' chez nous');
+      }
+    }
+    const zero = cv === 0;
+    // garde-fou : minimum attendu dans la BOM client pour pouvoir déclarer « conforme »
+    const miss = [];
+    if (!cpkg) miss.push('boîtier');
+    if (kind === 'C' && cvolt == null) miss.push('tension');
+    if (kind === 'R' && !zero && ctol == null) miss.push('tolérance');
+    if (miss.length) res.warn.push('Info manquante dans la BOM client : ' + miss.join(', ') + ' non précisé' + (miss.length > 1 ? 's' : (miss[0] === 'tension' || miss[0] === 'tolérance' ? 'e' : '')) + '. Impossible de confirmer que la pièce convient (à demander au client ?)');
+    // 5. tolérance
+    if (ctol != null && !zero) {
+      if (us.tol == null) res.warn.push('Tolérance introuvable chez nous (' + ctol + ' % demandé)');
+      else if (us.tol > ctol) res.err.push('Tolérance trop large : ' + ctol + ' % demandé, ' + us.tol + ' % chez nous');
+      else res.ok.push('tolérance');
+    }
+    // 6. ppm
+    if (cppm != null && !zero) {
+      if (us.ppm == null) res.warn.push('Coefficient en température introuvable chez nous (' + cppm + ' ppm demandé)');
+      else if (us.ppm > cppm) res.err.push('Coefficient en température trop élevé : ' + cppm + ' ppm demandé, ' + us.ppm + ' ppm chez nous');
+      else res.ok.push('ppm');
+    }
+    return res;
+  }
+
+  // ---------- Remarques du client (texte libre au-dessus du tableau) ----------
+  function parseNotes(notes) {
+    const lines = (notes || []).map(n => norm(n).replace(/\s+/g, ' ')).filter(Boolean);
+    const assigns = [], tokens = [];
+    lines.forEach(line => {
+      const re = /\b([A-Z]{1,4}\d{1,4})\s*[=:]\s*([A-Za-z0-9µ][\w\-\/.,#+()µ]*)/gi;
+      let m; while ((m = re.exec(line))) assigns.push({ ref: m[1].toUpperCase(), val: m[2].replace(/[.,]$/, ''), line });
+      line.split(/[\s;=]+/).forEach(t => {
+        const k = mpnKey(t);
+        if (k.length >= 6 && /\d/.test(k) && /[A-Z]/.test(k)) tokens.push({ key: k, line });
+      });
+    });
+    return { assigns, tokens };
+  }
+  function ourSpecs(l, kind) {
+    const d = parseDesc(l.desc, kind), ip = norm(l.ipn).split(/[;\n]+/).map(s => parseIPN(s.trim(), kind)).find(Boolean) || {};
+    return { value: d.value != null ? d.value : ip.value };
+  }
+  function applyNotes(out, kind, pn) {
+    const l = out.lumi, c = out.client;
+    if (!l || !pn) return;
+    // 1. « R1 = 3K3 » / « IC1 = MC74… » : consigne explicite sur un repère
+    pn.assigns.filter(a => out.refs.includes(a.ref)).forEach(a => {
+      const q = '« ' + a.ref + ' = ' + a.val + ' »';
+      const v = (kind === 'R' || kind === 'C' || kind === 'L') ? parseVal(a.val, kind) : null;
+      if (v != null) {
+        const us = ourSpecs(l, kind).value;
+        if (us == null) out.warn.push('Remarque du client ' + q + ' : valeur introuvable chez nous');
+        else if (Math.abs(us - v) > Math.max(Math.abs(v) * 0.001, 1e-15)) out.err.push('Remarque du client ' + q + ' non respectée : ' + fmtVal(us, kind) + ' chez nous');
+        else out.ok.push('Remarque du client ' + q + ' respectée');
+      } else if (mpnKey(a.val).length < 5 || !/\d/.test(a.val) || !/[A-Za-z]/.test(a.val)) {
+        out.warn.push('Remarque du client ' + q + ' : à lire, je ne sais pas la contrôler seul');
+      } else {
+        const m = compareMpn(a.val, l.mpn);
+        if (m.level === 'ok') out.ok.push('Remarque du client ' + q + ' respectée');
+        else out.err.push('Remarque du client ' + q + ' non respectée : ' + (l.mpn || 'aucun MPN') + ' chez nous');
+      }
+    });
+    // 2. notre MPN cité dans les remarques alors que le tableau client en demande un autre = ancienne référence
+    const ours = mpnKey(l.mpn);
+    if (ours && c && c.mpn && mpnKey(c.mpn) !== ours) {
+      const hit = pn.tokens.find(t => t.key === ours);
+      if (hit) {
+        out.warn = out.warn.filter(w => !/^MPN proche|^Le client précise le suffixe/.test(w));
+        out.err.push('Chez nous : l\'ancienne référence. Le client demande ' + c.mpn + ' et cite ' + l.mpn + ' dans ses remarques : « ' + hit.line + ' »');
+      }
+    }
+  }
+
+  // ---------- Comparaison globale ----------
+  function compare(clientRows, lumiRows, notes) {
+    const pn = parseNotes(notes);
+    const lumiByRef = new Map();
+    lumiRows.forEach(l => l.refs.forEach(r => lumiByRef.set(r, l)));
+    const seen = new Set(), results = [];
+    clientRows.forEach(c => {
+      const dnp = c.dnp && !/^(0|non|no|false)$/i.test(c.dnp);
+      // répartir les repères du client selon la ligne Luminovo où ils tombent
+      const groups = new Map();
+      c.refs.forEach(r => { seen.add(r); const l = lumiByRef.get(r) || null; const k = l ? l.idx : -1;
+        if (!groups.has(k)) groups.set(k, { l, refs: [] }); groups.get(k).refs.push(r); });
+      groups.forEach(({ l, refs }) => {
+        const out = { client: c, lumi: l, refs, err: [], warn: [], ok: [], notes: [], how: null };
+        const kind = refKind(refs[0]);
+        if (dnp) { out.warn.push('Marqué non câblé (DNP) chez le client'); if (l) out.warn.push('… mais présent chez nous'); }
+        else if (!l) out.warn.push('Repère absent de Luminovo' + (parseVal(c.value, kind) == null && !c.mpn ? ' — valeur non définie dans la BOM client' : ''));
+        else if (c.mpn) {
+          const m = compareMpn(c.mpn, l.mpn);
+          out[m.level].push(m.msg); if (m.level === 'ok') out.how = m.how;
+        } else if (kind === 'R' || kind === 'C' || kind === 'L') {
+          const s = checkSpecs(c, l, kind);
+          out.err.push(...s.err); out.warn.push(...s.warn); out.notes.push(...s.notes);
+          if (s.ok.length) out.ok.push('Vérifié : ' + s.ok.join(', ')); out.how = 'specs';
+        } else out.warn.push('Pas de MPN dans la BOM client : contrôle à l\'œil');
+        if (!dnp) applyNotes(out, kind, pn);
+        out.verdict = out.err.length ? 'err' : out.warn.length ? 'warn' : 'ok';
+        results.push(out);
+      });
+    });
+    // repères en plus chez nous
+    lumiRows.forEach(l => {
+      const extra = l.refs.filter(r => !seen.has(r) && r !== 'PCB');
+      if (extra.length) results.push({ client: null, lumi: l, refs: extra, err: [], warn: ['Repère présent chez nous mais absent de la BOM client'], ok: [], notes: [], verdict: 'warn' });
+    });
+    return results;
+  }
+
+  return { readClient, readLumi, compare, splitRefs, parseVal, compareMpn, parsePkgFootprint };
+})();
+
+
+</script>
+<script>
+/* ---- Onglet Comparateur BOM : interface (v1.0 du comparateur, intégré en MYCenter Prep v5.8) ---- */
+(function(){
+const $ = id => document.getElementById('cmp-' + id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const state = { client: null, clientName: '', lumiWb: null, lumiName: '' };
+const hide = (id, h) => $(id).classList.toggle('cx-hide', h);
+
+function showMsg(t) { const m = $('msg'); m.textContent = t; m.style.display = t ? 'block' : 'none'; }
+
+function readFile(file) {
+  return new Promise((ok, ko) => {
+    const fr = new FileReader();
+    fr.onerror = () => ko(new Error('Lecture impossible du fichier ' + file.name));
+    fr.onload = () => {
+      try {
+        const buf = new Uint8Array(fr.result);
+        if (/\.(csv|txt)$/i.test(file.name)) {
+          let txt = new TextDecoder('utf-8').decode(buf);
+          if (txt.includes('�')) txt = new TextDecoder('windows-1252').decode(buf);
+          ok(XLSX.read(txt.replace(/^﻿/, ''), { type: 'string' }));
+        } else ok(XLSX.read(buf, { type: 'array' }));
+      } catch (e) { ko(e); }
+    };
+    fr.readAsArrayBuffer(file);
+  });
+}
+const aoa = (wb, name) => XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '', raw: false });
+
+async function loadClient(file) {
+  try {
+    showMsg('');
+    const wb = await readFile(file);
+    let parsed = null, err = null;
+    for (const n of wb.SheetNames) { try { parsed = CMP_CORE.readClient(aoa(wb, n)); break; } catch (e) { err = e; } }
+    if (!parsed) throw err;
+    state.client = parsed; state.clientName = file.name;
+    const d = $('dropClient'); d.classList.add('cx-done');
+    d.innerHTML = '<i class="ti ti-circle-check" style="color:var(--green)"></i><div class="cx-t">' + esc(file.name) + '</div><div class="cx-s">' +
+      parsed.rows.length + ' lignes — ' + parsed.rows.reduce((a, r) => a + r.refs.length, 0) + ' repères</div>';
+    run();
+  } catch (e) { showMsg(e.message || String(e)); }
+}
+async function loadLumi(file) {
+  try {
+    showMsg('');
+    const wb = await readFile(file);
+    const sheets = wb.SheetNames.filter(n => !/^summary$/i.test(n));
+    if (!sheets.length) throw new Error('Export Luminovo : aucun onglet de scénario trouvé.');
+    state.lumiWb = wb; state.lumiName = file.name;
+    const sel = $('sumSheet'); sel.innerHTML = sheets.map(n => '<option>' + esc(n) + '</option>').join('');
+    sel.value = sheets.find(n => /^achats/i.test(n)) || sheets[0];
+    const d = $('dropLumi'); d.classList.add('cx-done');
+    d.innerHTML = '<i class="ti ti-circle-check" style="color:var(--green)"></i><div class="cx-t">' + esc(file.name) + '</div><div class="cx-s">' +
+      sheets.length + ' scénario(s) — « ' + esc(sel.value) + ' » retenu par défaut</div>';
+    run();
+  } catch (e) { showMsg(e.message || String(e)); }
+}
+
+function wireDrop(dropId, inputId, fn) {
+  const d = $(dropId), inp = $(inputId);
+  d.onclick = () => inp.click();
+  inp.onchange = () => { inp.files[0] && fn(inp.files[0]); inp.value = ''; };
+  d.ondragover = e => { e.preventDefault(); d.classList.add('cx-over'); };
+  d.ondragleave = () => d.classList.remove('cx-over');
+  d.ondrop = e => { e.preventDefault(); d.classList.remove('cx-over'); e.dataTransfer.files[0] && fn(e.dataTransfer.files[0]); };
+}
+
+function run() {
+  if (!state.client || !state.lumiWb) return;
+  try {
+    showMsg('');
+    const lumi = CMP_CORE.readLumi(aoa(state.lumiWb, $('sumSheet').value));
+    const res = CMP_CORE.compare(state.client.rows, lumi, state.client.notes);
+    $('sumClient').textContent = state.clientName;
+    $('sumLumi').textContent = state.lumiName;
+    hide('filesBlk', true); hide('filesSum', false);
+    render(res);
+    const lost = res.filter(r => r.warn.some(w => /^Repère (absent|présent chez nous)/.test(w))).length;
+    if (res.length && lost / res.length > 0.5) showMsg('Attention : plus de la moitié des repères ne se retrouvent pas d\'un fichier à l\'autre. Les deux fichiers concernent-ils bien la même carte ?');
+    const notes = state.client.notes || [];
+    hide('notesBlk', !notes.length);
+    $('notesList').innerHTML = notes.map(n => '<li>' + esc(n.replace(/\s*[\r\n]+\s*/g, ' ')) + '</li>').join('');
+  } catch (e) { showMsg(e.message || String(e)); }
+}
+
+function refsTxt(refs) {
+  return '<b>' + esc(refs.slice(0, 3).join(', ')) + '</b>' + (refs.length > 3 ? ' + ' + (refs.length - 3) + ' autres' : '') +
+    ' <span style="color:var(--text3)">(' + refs.length + ' repère' + (refs.length > 1 ? 's' : '') + ')</span>';
+}
+function kv(rows) {
+  const r = rows.filter(([, v]) => v != null && String(v).trim() !== '' && String(v).trim() !== '*');
+  if (!r.length) return '<div class="cx-empty">—</div>';
+  return '<table class="cx-kv">' + r.map(([k, v, mono]) => '<tr><td>' + k + '</td><td' + (mono ? ' class="cx-mono"' : '') + '>' + esc(v) + '</td></tr>').join('') + '</table>';
+}
+function clientSide(c) {
+  if (!c) return '<div class="cx-side"><div class="cx-cap">Ligne de la BOM client</div><div class="cx-empty">Absent de la BOM client</div></div>';
+  return '<div class="cx-side"><div class="cx-cap">Ligne de la BOM client (ligne ' + c.line + ')</div>' + kv([
+    ['Valeur', c.value], ['Boîtier', CMP_CORE.parsePkgFootprint(c.fp) || c.fp], ['Fabricant', c.manuf], ['MPN', c.mpn, 1], ['Tension', c.volt],
+    ['Type', c.diel], ['Précision', c.tol], ['Temp.', c.ppm], ['Description', c.desc], ['DNP', c.dnp]]) + '</div>';
+}
+function lumiSide(l) {
+  if (!l) return '<div class="cx-side"><div class="cx-cap">Chez nous (Luminovo)</div><div class="cx-empty">Absent de Luminovo</div></div>';
+  return '<div class="cx-side"><div class="cx-cap">Chez nous (Luminovo)</div>' + kv([
+    ['IPN', l.ipn.replace(/\s*[;\n]\s*/g, ' / '), 1], ['MPN', l.mpn, 1], ['Boîtier', l.pkg], ['Description', l.desc]]) + '</div>';
+}
+function lineHtml(r) {
+  const li = [];
+  r.err.forEach(t => li.push('<li class="cx-e"><i class="ti ti-x"></i>' + esc(t) + '</li>'));
+  r.warn.forEach(t => li.push('<li class="cx-w"><i class="ti ti-alert-triangle"></i>' + esc(t) + '</li>'));
+  r.notes.forEach(t => li.push('<li class="cx-i"><i class="ti ti-info-circle"></i>' + esc(t) + '</li>'));
+  r.ok.forEach(t => li.push('<li class="cx-i"><i class="ti ti-check"></i>' + esc(t) + '</li>'));
+  return '<div class="cx-line"><div class="cx-refs">' + refsTxt(r.refs) + '</div><div class="cx-cmp">' + clientSide(r.client) + lumiSide(r.lumi) +
+    '</div><ul class="cx-why">' + li.join('') + '</ul></div>';
+}
+const nb = n => n + (n > 1 ? ' lignes' : ' ligne');
+function render(res) {
+  const E = res.filter(r => r.verdict === 'err'), W = res.filter(r => r.verdict === 'warn'), O = res.filter(r => r.verdict === 'ok');
+  $('nErr').textContent = nb(E.length); $('nWarn').textContent = nb(W.length); $('nOk').textContent = nb(O.length);
+  $('listErr').innerHTML = E.length ? E.map(lineHtml).join('') : '<div class="cx-empty">Aucune erreur trouvée.</div>';
+  $('listWarn').innerHTML = W.length ? W.map(lineHtml).join('') : '<div class="cx-empty">Rien à vérifier.</div>';
+  const by = h => O.filter(r => r.how === h).length;
+  const accepted = O.filter(r => r.notes.length).length;
+  $('okStats').innerHTML =
+    '<span><b>' + by('mpn') + '</b> lignes : même MPN que le client</span>' +
+    '<span><b>' + by('pack') + '</b> lignes : même pièce, autre conditionnement</span>' +
+    '<span><b>' + by('specs') + '</b> lignes sans MPN client : toutes les caractéristiques demandées vérifiées</span>' +
+    (accepted ? '<span style="width:100%;font-size:12.5px">dont ' + accepted + ' avec un écart accepté (ex. COG → X7R, ou meilleur que demandé)</span>' : '');
+  $('listOk').innerHTML = '<table class="cx-oklist"><thead><tr><th style="width:22%">Repères</th><th style="width:26%">Demande client</th><th style="width:22%">Chez nous</th><th>Contrôle</th></tr></thead><tbody>' +
+    O.map(r => '<tr><td class="cx-mono">' + esc(r.refs.slice(0, 3).join(', ')) + (r.refs.length > 3 ? ' +' + (r.refs.length - 3) : '') + '</td><td>' +
+      esc(r.client.mpn || [r.client.value, CMP_CORE.parsePkgFootprint(r.client.fp), r.client.volt, r.client.diel, r.client.tol, r.client.ppm].filter(x => x && x !== '*').join(' · ')) +
+      '</td><td class="cx-mono">' + esc(r.lumi.mpn) + '</td><td>' + esc([...r.ok, ...r.notes].join(' — ')) + '</td></tr>').join('') + '</tbody></table>';
+  hide('listOk', true);
+  $('btnOk').querySelector('span').textContent = 'Voir les lignes conformes';
+  hide('results', false);
+}
+
+function init() {
+  wireDrop('dropClient', 'fileClient', loadClient);
+  wireDrop('dropLumi', 'fileLumi', loadLumi);
+  $('btnEdit').onclick = () => { hide('filesBlk', false); hide('filesSum', true); };
+  $('sumSheet').onchange = run;
+  $('btnOk').onclick = () => {
+    const l = $('listOk'); l.classList.toggle('cx-hide');
+    $('btnOk').querySelector('span').textContent = l.classList.contains('cx-hide') ? 'Voir les lignes conformes' : 'Masquer les lignes conformes';
+  };
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 </script>
 <script src="../shared/retour-accueil.js" defer></script>
