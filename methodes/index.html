@@ -3388,7 +3388,9 @@ const CMP_CORE = (() => {
     return null;
   }
   function parsePkgFootprint(fp) {
-    const m = norm(fp).match(/_(0201|0402|0603|0805|1206|1210|1808|1812|2010|2220|2512|1008|2225)_/);
+    // code boîtier impérial dans l'empreinte : « C_0603_1608Metric », « ST120601 », « R0805 »…
+    // toujours lu en impérial, sauf s'il est suivi de « M » / « Metric »
+    const m = norm(fp).match(/(?:^|[^0-9])(0201|0402|0603|0805|1206|1210|1808|1812|2010|2220|2512|1008|2225)(?![Mm])(?=[^0-9]|\d{2}$|$)/);
     return m ? m[1] : null;
   }
   const PKG_RE = /^(0201|0402|0603|0805|1206|1210|1808|1812|2010|2220|2512|1008|2225)$/;
@@ -3489,6 +3491,8 @@ const CMP_CORE = (() => {
       if (m.ref != null) { hi = i; map = m; break; }
     }
     if (hi < 0) throw new Error('BOM client : je ne trouve pas la ligne d\'en-tête (colonne des repères et colonne Valeur ou MPN).');
+    // pas de colonne « Valeur » : la valeur est souvent dans « Comment » (exports Altium)
+    if (map.value == null) { const ci = (aoa[hi] || []).findIndex(h => low(h) === 'comment'); if (ci >= 0) { map.value = ci; map.valueFromComment = true; } }
     // remarques écrites par le client au-dessus du tableau
     const notes = aoa.slice(0, hi).map(r => (r || []).map(norm).filter(Boolean).join(' — ')).filter(Boolean);
     // colonnes pouvant contenir une référence de pièce (MPN, 2e source, Comment, réf. distributeur…)
@@ -3503,7 +3507,7 @@ const CMP_CORE = (() => {
       if (!refs.length || refs[0] === 'PCB') return; // le circuit nu n'est pas un composant
       rows.push({ idx: rows.length, line: hi + 2 + i, refs, qty: g('qty'), value: g('value'), fp: g('fp'), mpn: g('mpn'),
         manuf: g('manuf'), tol: g('tol'), ppm: g('ppm'), volt: g('volt'), diel: g('diel'), desc: g('desc'), dnp: g('dnp'),
-        cands: candCols.map(x => ({ col: x.h, val: norm(r[x.i]), isMpn: x.i === map.mpn, isValue: x.i === map.value })).filter(x => x.val && x.val !== '*') });
+        cands: candCols.map(x => ({ col: x.h, val: norm(r[x.i]), isMpn: x.i === map.mpn, isValue: x.i === map.value && !map.valueFromComment })).filter(x => x.val && x.val !== '*') });
     });
     return { rows, cols: map, notes };
   }
