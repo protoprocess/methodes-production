@@ -1522,6 +1522,21 @@
 #pane-sens .sx-links a{color:var(--pp-blue);font-size:12px;text-decoration:none;margin-right:12px}
 #pane-sens .sx-hint{margin-top:5px;font-size:12px;color:var(--amber)}
 #pane-sens .sx-hint.ok{color:var(--green)}
+#pane-sens .sx-drops{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+#pane-sens .sx-crop{display:block;max-width:280px;max-height:200px;margin-top:6px;border:1px solid var(--border2);border-radius:4px;background:#fff}
+#pane-sens .sx-cap{margin-top:6px}
+#sens-modal{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.75);display:flex;flex-direction:column}
+#sens-modal.sx-hide{display:none}
+#sens-modal .sm-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--border);color:var(--text);font-size:13px}
+#sens-modal .sm-bar b{color:var(--blue)}
+#sens-modal .sm-bar button{padding:6px 11px;background:transparent;color:var(--text2);border:0.5px solid var(--border2);border-radius:var(--radius);font-size:12px;cursor:pointer;font-family:inherit}
+#sens-modal .sm-bar button:hover{color:var(--text)}
+#sens-modal .sm-scroll{flex:1;overflow:auto;padding:14px}
+#sens-modal .sm-page{position:relative;display:inline-block;cursor:crosshair;background:#fff}
+#sens-modal canvas{display:block}
+#sens-modal .sm-rect{position:absolute;border:2px solid #F07B1F;background:rgba(240,123,31,.12);pointer-events:none}
+#sens-modal .sm-mark{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;border:3px solid #e11d48;border-radius:50%;pointer-events:none;animation:smp 1s ease-in-out infinite}
+@keyframes smp{50%{transform:scale(1.4);opacity:.5}}
 </style>
 
 <div class="pane" id="pane-sens">
@@ -1535,7 +1550,11 @@
 
   <section class="sx-blk">
     <h2><i class="ti ti-file-spreadsheet"></i>1. BOM de la carte</h2>
-    <div class="sx-drop" id="sens-drop"><i class="ti ti-upload" style="font-size:22px"></i><br><b>Dépose la BOM ici</b> ou clique pour choisir (.ods, .xlsx, .csv)<br><span class="sx-s">Il faut une colonne Designator (repères) et une colonne MPN.</span></div>
+    <div class="sx-drops">
+      <div class="sx-drop" id="sens-drop"><i class="ti ti-upload" style="font-size:22px"></i><br><b>Dépose la BOM ici</b> ou clique pour choisir (.ods, .xlsx, .csv)<br><span class="sx-s">Il faut une colonne Designator (repères) et une colonne MPN.</span></div>
+      <div class="sx-drop" id="sens-pdrop"><i class="ti ti-file-type-pdf" style="font-size:22px"></i><br><b>Plan client (PDF)</b> — facultatif<br><span class="sx-s" id="sens-pinfo">Pour capturer la zone de chaque connecteur.</span></div>
+    </div>
+    <input type="file" id="sens-pfile" accept=".pdf" class="sx-hide">
     <input type="file" id="sens-file" accept=".ods,.xlsx,.xls,.csv,.txt" class="sx-hide">
     <div id="sens-ferr" class="sx-err"></div>
   </section>
@@ -1572,6 +1591,16 @@
       </div>
     </section>
   </div>
+  <div id="sens-modal" class="sx-hide">
+    <div class="sm-bar">
+      <span id="sm-titre">Plan client</span>
+      <span style="flex:1"></span>
+      <button id="sm-prev">◀ Page</button><span id="sm-pg"></span><button id="sm-next">Page ▶</button>
+      <button id="sm-zm">−</button><button id="sm-zp">+</button>
+      <button id="sm-close">Fermer (Échap)</button>
+    </div>
+    <div class="sm-scroll" id="sm-scroll"><div class="sm-page" id="sm-page"><canvas id="sm-canvas"></canvas></div></div>
+  </div>
 </div>
 </div>
 
@@ -1581,7 +1610,7 @@
    Règles connues = décisions du pôle méthodes (Jérôme, 08-09/10/2026). L'outil PROPOSE, la personne qui signe DÉCIDE.
    Pour ajouter une série : nouvelle entrée dans SENS_REGLES + incrémenter SENS_REGLES_VER. */
 (function(){
-  var SENS_VER = '1.2', SENS_REGLES_VER = '1.0 — 09/10/2026';
+  var SENS_VER = '1.3', SENS_REGLES_VER = '1.0 — 09/10/2026';
 
   /* classe : 'sens' (à sens, repère à regarder) | 'impose' (ne se monte que d'une façon) | 'sans' (pas de sens)
      corps  : 'meme' | 'oppose' — position du repère du corps par rapport au pin 1
@@ -1756,6 +1785,131 @@
       (f.lien ? '<a href="' + esc(f.lien) + '" target="_blank" rel="noopener"><i class="ti ti-external-link"></i> Fiche ' + esc(f.source) + '</a>' : '') + '</div></div>';
   }
 
+  /* ---------- plan client (v1.3) : pdf.js chargé à la demande, capture d'une zone par connecteur ---------- */
+  var PDFJS_V = '3.11.174', PLAN = null, PLAN_NOM = '', PG = 1, ZOOM = 1.2, CAP = -1, TEXTES = null;
+  function chargerPdfjs(){
+    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    return new Promise(function(ok, ko){
+      var sc = document.createElement('script');
+      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/' + PDFJS_V + '/pdf.min.js';
+      sc.onload = function(){ window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/' + PDFJS_V + '/pdf.worker.min.js'; ok(window.pdfjsLib); };
+      sc.onerror = function(){ ko(new Error('lecteur PDF non chargé')); };
+      document.head.appendChild(sc);
+    });
+  }
+  var pdrop = $('sens-pdrop'), pinp = $('sens-pfile');
+  pdrop.addEventListener('click', function(){ pinp.click(); });
+  pdrop.addEventListener('dragover', function(e){ e.preventDefault(); pdrop.classList.add('sx-over'); });
+  pdrop.addEventListener('dragleave', function(){ pdrop.classList.remove('sx-over'); });
+  pdrop.addEventListener('drop', function(e){ e.preventDefault(); pdrop.classList.remove('sx-over'); if (e.dataTransfer.files[0]) lirePlan(e.dataTransfer.files[0]); });
+  pinp.addEventListener('change', function(){ if (pinp.files[0]) lirePlan(pinp.files[0]); pinp.value = ''; });
+  function lirePlan(f){
+    $('sens-pinfo').textContent = 'Lecture du plan…';
+    var rd = new FileReader();
+    rd.onload = function(){
+      chargerPdfjs().then(function(lib){ return lib.getDocument({ data: new Uint8Array(rd.result) }).promise; })
+        .then(function(doc){
+          PLAN = doc; PLAN_NOM = f.name; PG = 1; TEXTES = null;
+          $('sens-pinfo').innerHTML = '<b>' + esc(f.name) + '</b> — ' + doc.numPages + ' page(s) · <a href="#" id="sens-pvoir" style="color:var(--pp-blue)">voir le plan</a>';
+          $('sens-pvoir').addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); ouvrir(-1); });
+          indexerTextes();
+          if (LIGNES.length) dessiner();
+        })
+        .catch(function(e){ $('sens-pinfo').textContent = 'Plan illisible : ' + e.message; });
+    };
+    rd.readAsArrayBuffer(f);
+  }
+  /* repères écrits en texte dans le PDF (souvent absent : beaucoup de plans dessinent les lettres) */
+  function indexerTextes(){
+    TEXTES = [];
+    var n = PLAN.numPages, fait = 0;
+    for (var p = 1; p <= n; p++) (function(p){
+      PLAN.getPage(p).then(function(pg){ return pg.getTextContent().then(function(tc){
+        tc.items.forEach(function(it){ var t = String(it.str || '').trim(); if (/^[A-Z]{1,3}\d{1,4}$/i.test(t)) TEXTES.push({ t:t.toUpperCase(), p:p, x:it.transform[4], y:it.transform[5] }); });
+      }); }).then(function(){ if (++fait === n && LIGNES.length) dessiner(); });
+    })(p);
+  }
+  function trouverTexte(des){
+    if (!TEXTES) return null;
+    var reps = String(des).toUpperCase().split(/[\s,;]+/).filter(Boolean);
+    for (var i = 0; i < reps.length; i++){ var h = TEXTES.filter(function(x){ return x.t === reps[i]; })[0]; if (h) return h; }
+    return null;
+  }
+  function rendre(){
+    return PLAN.getPage(PG).then(function(page){
+      var vp = page.getViewport({ scale: ZOOM }), cv = $('sm-canvas');
+      cv.width = Math.floor(vp.width); cv.height = Math.floor(vp.height);
+      $('sm-pg').textContent = ' ' + PG + ' / ' + PLAN.numPages + ' ';
+      var old = $('sm-page').querySelectorAll('.sm-mark,.sm-rect'); for (var i = 0; i < old.length; i++) old[i].remove();
+      return page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise.then(function(){ return { page:page, vp:vp }; });
+    });
+  }
+  function ouvrir(i){
+    if (!PLAN) return;
+    CAP = i;
+    var l = i >= 0 ? LIGNES[i] : null, h = l ? trouverTexte(l.des) : null;
+    $('sm-titre').innerHTML = l ? 'Entoure <b>' + esc(l.des) + '</b> (' + esc(l.mpn) + ') : clic-glisser autour du connecteur et de son marquage pin 1' + (h ? ' — repère trouvé sur le plan (cercle rouge)' : '') : 'Plan client — ' + esc(PLAN_NOM);
+    if (h) { PG = h.p; ZOOM = Math.max(ZOOM, 3); }  // repère trouvé : on zoome dessus
+    $('sens-modal').classList.remove('sx-hide');
+    rendre().then(function(r){
+      if (!h) return;
+      var pt = r.vp.convertToViewportPoint(h.x, h.y), m = document.createElement('div');
+      m.className = 'sm-mark'; m.style.left = pt[0] + 'px'; m.style.top = pt[1] + 'px'; $('sm-page').appendChild(m);
+      var sc = $('sm-scroll'); sc.scrollLeft = pt[0] - sc.clientWidth / 2; sc.scrollTop = pt[1] - sc.clientHeight / 2;
+    });
+  }
+  function fermer(){ $('sens-modal').classList.add('sx-hide'); CAP = -1; }
+  $('sm-close').addEventListener('click', fermer);
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('sens-modal').classList.contains('sx-hide')) fermer(); });
+  $('sm-prev').addEventListener('click', function(){ if (PG > 1) { PG--; rendre(); } });
+  $('sm-next').addEventListener('click', function(){ if (PLAN && PG < PLAN.numPages) { PG++; rendre(); } });
+  $('sm-zp').addEventListener('click', function(){ ZOOM = Math.min(ZOOM * 1.3, 8); rendre(); });
+  $('sm-zm').addEventListener('click', function(){ ZOOM = Math.max(ZOOM / 1.3, 0.4); rendre(); });
+  (function(){
+    var zone = $('sm-page'), d = null, rect = null;
+    function pos(e){ var b = zone.getBoundingClientRect(); return { x: e.clientX - b.left, y: e.clientY - b.top }; }
+    zone.addEventListener('mousedown', function(e){
+      if (CAP < 0) return; e.preventDefault(); d = pos(e);
+      rect = document.createElement('div'); rect.className = 'sm-rect'; zone.appendChild(rect);
+    });
+    window.addEventListener('mousemove', function(e){
+      if (!d) return; var q = pos(e);
+      rect.style.left = Math.min(d.x, q.x) + 'px'; rect.style.top = Math.min(d.y, q.y) + 'px';
+      rect.style.width = Math.abs(q.x - d.x) + 'px'; rect.style.height = Math.abs(q.y - d.y) + 'px';
+    });
+    window.addEventListener('mouseup', function(e){
+      if (!d) return; var q = pos(e), a = d; d = null;
+      var x = Math.min(a.x, q.x), y = Math.min(a.y, q.y), w = Math.abs(q.x - a.x), h = Math.abs(q.y - a.y);
+      if (w < 8 || h < 8) { rect.remove(); return; }
+      capturer(x, y, w, h);
+    });
+  })();
+  /* capture nette : la page est re-rendue 3× plus fine puis découpée */
+  function capturer(x, y, w, h){
+    var i = CAP, k = 3;
+    PLAN.getPage(PG).then(function(page){
+      var vp = page.getViewport({ scale: ZOOM * k }), cv = document.createElement('canvas');
+      cv.width = Math.floor(vp.width); cv.height = Math.floor(vp.height);
+      return page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise.then(function(){
+        var out = document.createElement('canvas'), W = Math.round(w * k), H = Math.round(h * k), r = Math.min(1, 900 / Math.max(W, H));
+        out.width = Math.round(W * r); out.height = Math.round(H * r);
+        var cx = out.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, out.width, out.height);
+        cx.drawImage(cv, Math.round(x * k), Math.round(y * k), W, H, 0, 0, out.width, out.height);
+        LIGNES[i].crop = out.toDataURL('image/jpeg', 0.85);
+        LIGNES[i].cropSrc = PLAN_NOM + ' p.' + PG;
+        fermer(); dessiner();
+      });
+    });
+  }
+  function captureHtml(l, i){
+    var b = PLAN ? '<button class="sx-btn sx-cap" data-cap="' + i + '"><i class="ti ti-crop"></i> ' + (l.crop ? 'Recapturer' : 'Capturer sur le plan') + (trouverTexte(l.des) ? ' (repère trouvé)' : '') + '</button>' : '';
+    return (l.crop ? '<img class="sx-crop" src="' + l.crop + '" alt="Extrait du plan ' + esc(l.des) + '"><div class="sx-s">' + esc(l.cropSrc || '') + '</div>' : '') + b;
+  }
+  $('sens-rows').addEventListener('click', function(e){
+    var b = e.target.closest ? e.target.closest('[data-cap]') : null;
+    if (b) ouvrir(+b.getAttribute('data-cap'));
+  });
+
   /* brouillon par fichier : confort seulement (le navigateur peut l'oublier) */
   function cle(){ return 'pp_sens_' + FICHIER; }
   function sauver(){ try { localStorage.setItem(cle(), JSON.stringify(LIGNES.map(function(l){ return { des:l.des, mpn:l.mpn, classe:l.classe, corps:l.corps, pin1:l.pin1, note:l.note, ok:l.ok, ajout:!!l.ajout }; }))); } catch(e){} }
@@ -1803,7 +1957,7 @@
         : '<span class="sx-badge ' + (r.piege ? 'sx-b-err' : r.valide ? 'sx-b-ok' : 'sx-b-warn') + '">' + (r.piege ? 'PIÈGE CONNU' : r.valide ? 'Série connue' : 'Piste à confirmer') + '</span> ' +
           '<b style="font-size:12px">' + esc(r.nom) + '</b><div class="sx-why">' + r.pourquoi + '</div>' +
           (r.classe === 'sens' && r.corps ? pict(r.corps) : '') + '<div class="sx-s">' + esc(r.source) + '</div>';
-      savoir += ficheHtml(l.fiche);
+      savoir += ficheHtml(l.fiche) + captureHtml(l, i);
       var opts = '<option value="">— choisir —</option>' + Object.keys(CLASSES).map(function(k){ return '<option value="' + k + '"' + (l.classe === k ? ' selected' : '') + '>' + CLASSES[k] + '</option>'; }).join('');
       var detail = l.classe === 'sens'
         ? '<input type="text" data-i="' + i + '" data-k="pin1" value="' + esc(l.pin1) + '" placeholder="Pin 1 sur le plan (ex. coin coupé bas-gauche)">' +
@@ -1864,10 +2018,10 @@
     var lignesSens = aSens.map(function(l){
       var p = l.corps === 'oppose';
       return '<tr class="' + (p ? 'opp' : '') + '"><td class="rep">' + esc(l.des) + '</td><td class="m">' + esc(l.mpn) + '</td>' +
-        '<td>' + esc(l.pin1) + '</td><td>' + (p ? '<b class="alerte">REPÈRE DU CORPS OPPOSÉ AU PIN 1</b>' : 'Repère du corps <b>même côté</b> que le pin 1') + pict(l.corps, 170) + '</td>' +
+        '<td>' + esc(l.pin1) + (l.crop ? '<img class="plan" src="' + l.crop + '">' : '') + '</td><td>' + (p ? '<b class="alerte">REPÈRE DU CORPS OPPOSÉ AU PIN 1</b>' : 'Repère du corps <b>même côté</b> que le pin 1') + pict(l.corps, 170) + '</td>' +
         '<td>' + esc(l.note) + '</td><td class="case">☐</td></tr>';
     }).join('');
-    var lignesImp = impose.map(function(l){ return '<tr><td class="rep">' + esc(l.des) + '</td><td class="m">' + esc(l.mpn) + '</td><td colspan="2">Sens imposé par la forme / l\'empreinte — ne se monte que d\'une façon</td><td>' + esc(l.note) + '</td><td class="case">☐</td></tr>'; }).join('');
+    var lignesImp = impose.map(function(l){ return '<tr><td class="rep">' + esc(l.des) + '</td><td class="m">' + esc(l.mpn) + '</td><td colspan="2">Sens imposé par la forme / l\'empreinte — ne se monte que d\'une façon' + (l.crop ? '<img class="plan" src="' + l.crop + '">' : '') + '</td><td>' + esc(l.note) + '</td><td class="case">☐</td></tr>'; }).join('');
     var titre = 'SensConnecteurs_' + (so || 'SO') + '_' + carte.replace(/[^\w.-]+/g, '_');
     var html = '<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>' + esc(titre) + '</title><style>' +
       'body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:18px;font-size:12px}h1{font-size:18px;margin:0 0 4px}' +
@@ -1877,14 +2031,14 @@
       'th{background:#eee;font-size:10.5px;text-transform:uppercase}.rep{font-family:Consolas,monospace;font-weight:bold;font-size:13px}.m{font-family:Consolas,monospace}' +
       'tr.opp td{background:#FCEBEB}.alerte{color:#A32D2D;font-size:13px}.case{font-size:20px;text-align:center;width:40px}' +
       'h2{font-size:14px;margin:14px 0 2px}.s{color:#555;font-size:11px}.pied{margin-top:18px;border-top:1px solid #999;padding-top:8px;display:flex;gap:40px}' +
-      'svg text{fill:#333}@media print{.noprint{display:none}body{margin:8mm}}' +
+      'img.plan{display:block;max-width:260px;max-height:180px;margin-top:6px;border:1px solid #999}svg text{fill:#333}@media print{.noprint{display:none}body{margin:8mm}}' +
       '.noprint{background:#FAEEDA;border:1px solid #854F0B;padding:8px 10px;margin-bottom:12px}</style></head><body>' +
       '<div class="noprint">Enregistre cette feuille en <b>PDF</b> (Imprimer → « Enregistrer au format PDF ») dans le dossier de la carte, nom proposé : <b>' + esc(titre) + '.pdf</b> <button onclick="window.print()">Imprimer / PDF</button></div>' +
       '<div class="hd"><div><h1>Sens connecteurs</h1><div><b>' + esc(carte) + '</b>' + (so ? ' · ' + esc(so) : '') + '</div>' +
-      '<div class="s">BOM : ' + esc(FICHIER) + ' · MYCenter Prep ' + esc(verApp) + ' · Sens connecteurs v' + SENS_VER + ' · règles ' + SENS_REGLES_VER + '</div></div>' +
+      '<div class="s">BOM : ' + esc(FICHIER) + (PLAN_NOM ? ' · plan : ' + esc(PLAN_NOM) : '') + ' · MYCenter Prep ' + esc(verApp) + ' · Sens connecteurs v' + SENS_VER + ' · règles ' + SENS_REGLES_VER + '</div></div>' +
       '<div class="sig">Validée par <b>' + esc(qui) + '</b><br>le ' + quand + '</div></div>' +
       '<h2>À sens — vérifier le repère du corps avant de poser (' + aSens.length + ')</h2>' +
-      (aSens.length ? '<table><thead><tr><th>Repères</th><th>Référence</th><th>Pin 1 sur le plan</th><th>Repère du corps</th><th>Note</th><th>1er art.</th></tr></thead><tbody>' + lignesSens + '</tbody></table>' : '<p class="s">Aucun.</p>') +
+      (aSens.length ? '<table><thead><tr><th>Repères</th><th>Référence</th><th>Pin 1 sur le plan (extrait)</th><th>Repère du corps</th><th>Note</th><th>1er art.</th></tr></thead><tbody>' + lignesSens + '</tbody></table>' : '<p class="s">Aucun.</p>') +
       '<h2>Sens imposé (' + impose.length + ')</h2>' +
       (impose.length ? '<table><thead><tr><th>Repères</th><th>Référence</th><th colspan="2">Pourquoi</th><th>Note</th><th>1er art.</th></tr></thead><tbody>' + lignesImp + '</tbody></table>' : '<p class="s">Aucun.</p>') +
       '<h2>Sans sens (' + sans.length + ')</h2><p>' + (sans.length ? sans.map(function(l){ return '<span class="m">' + esc(l.des) + '</span> (' + esc(l.mpn) + ')'; }).join(' · ') : '<span class="s">Aucun.</span>') + '</p>' +
@@ -3738,7 +3892,7 @@ window.aoi_runConvert = runConvert;
 <script>
 /* ---- onglets Methodes v4.0 ---- */
 (function(){
-  var APP_VERSION_G = "5.12", APP_DATE_G = "09/10/2026"; // v5.12 : Sens connecteurs v1.2 — texte « pas de détrompeur » clarifié (c'est la fiche fournisseur qui ne dit rien, pas la datasheet) — v5.11 : Sens connecteurs v1.1 — recherche automatique des fiches DigiKey/Mouser (gratuit, sans IA) pour les connecteurs non connus — v5.10 : onglet « Sens connecteurs » v1.0 — feuille sens des connecteurs (tri depuis la BOM, pièges connus TFML/TFC/TEM, décision + signature méthodes, feuille PDF pour le poste ; chantier 203) — v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
+  var APP_VERSION_G = "5.13", APP_DATE_G = "09/10/2026"; // v5.13 : Sens connecteurs v1.3 — plan client PDF : affichage, repérage auto si le plan contient le texte du repère, capture de la zone par connecteur, extrait sur la feuille signée — v5.12 : Sens connecteurs v1.2 — texte « pas de détrompeur » clarifié (c'est la fiche fournisseur qui ne dit rien, pas la datasheet) — v5.11 : Sens connecteurs v1.1 — recherche automatique des fiches DigiKey/Mouser (gratuit, sans IA) pour les connecteurs non connus — v5.10 : onglet « Sens connecteurs » v1.0 — feuille sens des connecteurs (tri depuis la BOM, pièges connus TFML/TFC/TEM, décision + signature méthodes, feuille PDF pour le poste ; chantier 203) — v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
   document.title = "MYCenter Prep \u2014 v" + APP_VERSION_G + " \u2014 " + APP_DATE_G;
   function poser(){
     var h = document.getElementById('hdr-version');
