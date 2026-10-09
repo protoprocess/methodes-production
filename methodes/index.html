@@ -3302,7 +3302,7 @@ window.aoi_runConvert = runConvert;
 <script>
 /* ---- onglets Methodes v4.0 ---- */
 (function(){
-  var APP_VERSION_G = "5.8", APP_DATE_G = "07/10/2026"; // v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
+  var APP_VERSION_G = "5.9", APP_DATE_G = "09/10/2026"; // v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
   document.title = "MYCenter Prep \u2014 v" + APP_VERSION_G + " \u2014 " + APP_DATE_G;
   function poser(){
     var h = document.getElementById('hdr-version');
@@ -3424,6 +3424,8 @@ const CMP_CORE = (() => {
 
   // ---------- MPN ----------
   const mpnKey = s => norm(s).toUpperCase().replace(/[\s\-_/,.#+]/g, '');
+  // référence client incomplète : contient un caractère à compléter, ou pas de chiffre, ou trop courte
+  const isIndicRef = s => { const k = mpnKey(s); return !!norm(s) && (/_/.test(norm(s)) || !/\d/.test(k) || k.length < 5); };
   const PACK_SUFFIX = ['T', 'R', 'TR', 'RL', 'RL7', 'REEL', 'REEL7', 'PBF', 'TRPBF', 'TRMPBF', 'CT', '125', '115', '135', 'T1', 'TP', 'E3', 'G', 'ND'];
   const TVS_RE = /^(SMAJ|SMBJ|SMCJ|SMDJ|P4KE|P6KE|15KE|SA\d|SMF)/;
   function compareMpn(cl, us) {
@@ -3458,11 +3460,15 @@ const CMP_CORE = (() => {
     desc: ['description', 'desc', 'designation'],
     dnp: ['dnp', 'do not populate', 'nc', 'non cable', 'not fitted'],
   };
+  const squash = x => x.replace(/[\s._\-]/g, '');
   function mapHeader(row) {
-    const h = row.map(low), map = {};
+    const h = row.map(low), hs = h.map(squash), map = {};
     for (const [k, syn] of Object.entries(COLS)) {
+      const syns = syn.map(squash);
       let idx = h.findIndex(x => syn.includes(x));
+      if (idx < 0) idx = hs.findIndex(x => x && syns.includes(x));
       if (idx < 0 && k !== 'dnp' && k !== 'diel' && k !== 'manuf') idx = h.findIndex(x => syn.some(s => s.length > 3 && x.includes(s)));
+      if (idx < 0 && k !== 'dnp' && k !== 'diel' && k !== 'manuf') idx = hs.findIndex(x => syns.some(s => s.length > 3 && x.includes(s)));
       if (idx >= 0 && !Object.values(map).includes(idx)) map[k] = idx;
     }
     return map;
@@ -3494,7 +3500,10 @@ const CMP_CORE = (() => {
     // pas de colonne « Valeur » : la valeur est souvent dans « Comment » (exports Altium)
     if (map.value == null) { const ci = (aoa[hi] || []).findIndex(h => low(h) === 'comment'); if (ci >= 0) { map.value = ci; map.valueFromComment = true; } }
     // remarques écrites par le client au-dessus du tableau
-    const notes = aoa.slice(0, hi).map(r => (r || []).map(norm).filter(Boolean).join(' — ')).filter(Boolean);
+    const isRefCell = v => splitRefs(v).some(x => /^[A-Z]{1,4}\d{1,4}$/.test(x));
+    const m0ref = map.ref;
+    const notes = aoa.slice(0, hi).map(r => (r || []).map(norm).filter(Boolean).join(' — ')).filter(Boolean)
+      .concat(aoa.slice(hi + 1).filter(r => !isRefCell(norm((r || [])[m0ref]))).map(r => (r || []).map(norm).filter(Boolean).join(' — ')).filter(Boolean));
     // colonnes pouvant contenir une référence de pièce (MPN, 2e source, Comment, réf. distributeur…)
     const head = (aoa[hi] || []).map(norm);
     const CAND_RE = /mpn|part ?n(umber|o)|p\/n|\bpn\b|comment|ref(erence)? ?(fab|constr|manuf)|manufacturer ?(part|ref)|mfr|mfg|source|altern|\balt\b|equivalent|supplier ?part|order ?(code|n)|digi|mouser|farnell|rs ?(pro|comp)|tme\b|value|valeur/i;
@@ -3505,20 +3514,40 @@ const CMP_CORE = (() => {
       const g = k => map[k] != null ? norm(r[map[k]]) : '';
       const refs = splitRefs(g('ref'));
       if (!refs.length || refs[0] === 'PCB') return; // le circuit nu n'est pas un composant
+      if (!refs.some(x => /^[A-Z]{1,4}\d{1,4}$/.test(x))) return; // ligne de pied / texte libre
       rows.push({ idx: rows.length, line: hi + 2 + i, refs, qty: g('qty'), value: g('value'), fp: g('fp'), mpn: g('mpn'),
         manuf: g('manuf'), tol: g('tol'), ppm: g('ppm'), volt: g('volt'), diel: g('diel'), desc: g('desc'), dnp: g('dnp'),
         cands: candCols.map(x => ({ col: x.h, val: norm(r[x.i]), isMpn: x.i === map.mpn, isValue: x.i === map.value && !map.valueFromComment })).filter(x => x.val && x.val !== '*') });
+      const row = rows[rows.length - 1], k0 = refKind(row.refs[0]);
+      if ((k0 === 'R' || k0 === 'C' || k0 === 'L') && isIndicRef(row.mpn)) {
+        row.indicMpn = row.mpn; row.mpn = '';
+        row.cands = row.cands.filter(x => !isIndicRef(x.val));
+      }
     });
     return { rows, cols: map, notes };
+  }
+  // « Nexperia; BZX585-C15 » par ligne → on garde la dernière valeur de chaque ligne (le MPN)
+  function apprList(s) {
+    return norm(s).split(/[\n\r]+/).map(x => x.split(';').map(t => t.trim()).filter(Boolean))
+      .filter(a => a.length).map(a => a[a.length - 1]);
   }
   function readLumi(aoa) {
     const h = (aoa[0] || []).map(low);
     const ix = n => h.indexOf(n);
+    const has = (...frags) => h.findIndex(x => x && frags.every(f => x.includes(f)));
     const c = { ref: ix('designator'), qty: ix('qty'), ipn: ix('approved internal part number'), pkg: ix('package'), mpn: ix('mpn'), desc: ix('description') };
+    if (c.qty < 0) c.qty = ix('quantity');
+    if (c.qty < 0) c.qty = ix('aggregated qty');
+    if (c.ipn < 0) c.ipn = has('internal part number');   // « Internal part number (IPN) from BOM »
+    if (c.ipn < 0) c.ipn = has('ipn');
+    c.note = ix('notes'); c.appr = ix('approved parts'); c.mount = ix('mounting');
     if (c.ref < 0 || c.mpn < 0) throw new Error('Export Luminovo : colonnes « Designator » et « MPN » introuvables dans cet onglet.');
-    return aoa.slice(1).map((r, i) => ({ idx: i, refs: splitRefs(r[c.ref]), qty: norm(r[c.qty]),
-      ipn: c.ipn >= 0 ? norm(r[c.ipn]) : '', pkg: c.pkg >= 0 ? norm(r[c.pkg]) : '', mpn: norm(r[c.mpn]), desc: c.desc >= 0 ? norm(r[c.desc]) : '' }))
+    const out = aoa.slice(1).map((r, i) => ({ idx: i, refs: splitRefs(r[c.ref]), qty: norm(r[c.qty]),
+      ipn: c.ipn >= 0 ? norm(r[c.ipn]) : '', pkg: c.pkg >= 0 ? norm(r[c.pkg]) : '', mpn: norm(r[c.mpn]), desc: c.desc >= 0 ? norm(r[c.desc]) : '',
+      note: c.note >= 0 ? norm(r[c.note]) : '', appr: c.appr >= 0 ? norm(r[c.appr]) : '', mount: c.mount >= 0 ? norm(r[c.mount]) : '' }))
       .filter(r => r.refs.length);
+    out.reduced = c.desc < 0;   // export « scénario de sourcing » : pas de description de notre pièce
+    return out;
   }
 
   // ---------- Contrôle par caractéristiques ----------
@@ -3539,12 +3568,14 @@ const CMP_CORE = (() => {
   function checkSpecs(c, u, kind) {
     const res = { err: [], warn: [], ok: [], notes: [] };
     // valeurs côté client
-    const cv = parseVal(c.value, kind);
-    const cpkg = parsePkgFootprint(c.fp) || (PKG_RE.test(c.fp) ? c.fp : null);
-    const cvolt = parseVolt(c.volt);
-    const cdiel = kind === 'C' ? parseDiel(c.diel) : null;
-    const ctol = isStar(c.tol) ? null : parsePct(c.tol);
-    const cppm = isStar(c.ppm) ? null : parsePpm(c.ppm);
+    const cd = parseDesc(c.desc, kind);            // la BOM client met souvent tout dans la Description
+    const cv = parseVal(c.value, kind) ?? cd.value;
+    const cpkg = parsePkgFootprint(c.fp) || (PKG_RE.test(c.fp) ? c.fp : null) || parsePkgFootprint(c.desc);
+    const cvolt = parseVolt(c.volt) ?? (kind === 'C' ? cd.volt : null);
+    const cdiel = kind === 'C' ? (parseDiel(c.diel) || parseDiel(c.desc)) : null;
+    const ctol = (isStar(c.tol) ? null : parsePct(c.tol)) ?? cd.tol;
+    const cppm = (isStar(c.ppm) ? null : parsePpm(c.ppm)) ?? cd.ppm;
+    const tht = /radial|axial|travers|\bTHT\b|through|bornier|barrette/i.test(norm(c.desc) + ' ' + norm(c.fp));
     // côté nous : description (= le MPN réel) prioritaire, IPN en secours
     const ipns = norm(u.ipn).split(/[;\n]+/).map(s => s.trim()).filter(Boolean);
     const ipnP = ipns.map(i => parseIPN(i, kind)).filter(Boolean);
@@ -3552,7 +3583,7 @@ const CMP_CORE = (() => {
     const ip = ipnP[0] || {};
     const us = {
       value: dP.value != null ? dP.value : ip.value,
-      pkg: PKG_RE.test(u.pkg) ? u.pkg : (ip.pkg || null),
+      pkg: (p => PKG_RE.test(p) ? p : (ip.pkg || null))(/^\d{3}$/.test(norm(u.pkg)) ? '0' + norm(u.pkg) : norm(u.pkg)),
       volt: dP.volt != null ? dP.volt : ip.volt,
       diel: dP.diel || ip.diel,
       tol: dP.tol,
@@ -3601,7 +3632,7 @@ const CMP_CORE = (() => {
     const zero = cv === 0;
     // garde-fou : minimum attendu dans la BOM client pour pouvoir déclarer « conforme »
     const miss = [];
-    if (!cpkg) miss.push('boîtier');
+    if (!cpkg && !tht) miss.push('boîtier');
     if (kind === 'C' && cvolt == null) miss.push('tension');
     if (kind === 'R' && !zero && ctol == null) miss.push('tolérance');
     if (miss.length) res.warn.push('Info manquante dans la BOM client : ' + miss.join(', ') + ' non précisé' + (miss.length > 1 ? 's' : (miss[0] === 'tension' || miss[0] === 'tolérance' ? 'e' : '')) + '. Impossible de confirmer que la pièce convient (à demander au client ?)');
@@ -3704,13 +3735,20 @@ const CMP_CORE = (() => {
           out.ok.push(cm.ok.msg + (cm.ok.cand.isMpn ? '' : ' — trouvé dans la colonne « ' + cm.ok.cand.col + ' » : ' + cm.ok.cand.val));
           out.how = cm.ok.how;
         } else if (c.mpn || (cm.refs.length && !(kind === 'R' || kind === 'C' || kind === 'L'))) {
-          if (cm.warn) out.warn.push(cm.warn.msg + (cm.warn.cand.isMpn ? '' : ' (colonne « ' + cm.warn.cand.col + ' » : ' + cm.warn.cand.val + ')'));
+          const asked = c.mpn || (cm.refs[0] && cm.refs[0].val) || '';
+          const hit = apprList(l.appr).map(a => ({ a, m: compareMpn(asked, a) })).find(x => x.m.level === 'ok');
+          if (hit) {
+            out.ok.push('Équivalent approuvé dans Luminovo : le client demande ' + asked + ', référence présente dans nos pièces approuvées ; acheté ' + (l.mpn || '?'));
+            out.how = 'approved';
+            if (l.note) out.notes.push('Note Luminovo : ' + l.note);
+          } else if (cm.warn) out.warn.push(cm.warn.msg + (cm.warn.cand.isMpn ? '' : ' (colonne « ' + cm.warn.cand.col + ' » : ' + cm.warn.cand.val + ')'));
           else if (cm.refs.length > 1) out.err.push('Aucune des références du client ne correspond à notre MPN (' + (l.mpn || 'aucun') + '). Le client indique : ' + cm.refs.map(x => x.val + ' (' + x.col + ')').join(' ; '));
           else { const m = compareMpn(c.mpn || cm.refs[0].val, l.mpn); out[m.level].push(m.msg); }
         } else if (kind === 'R' || kind === 'C' || kind === 'L') {
           const s = checkSpecs(c, l, kind);
           out.err.push(...s.err); out.warn.push(...s.warn); out.notes.push(...s.notes);
           if (s.ok.length) out.ok.push('Vérifié : ' + s.ok.join(', ')); out.how = 'specs';
+          if (c.indicMpn) out.notes.push('Référence client « ' + c.indicMpn + ' » incomplète, donnée à titre indicatif — contrôle fait sur les caractéristiques');
         } else out.warn.push('Pas de MPN dans la BOM client : contrôle à l\'œil');
         if (!dnp) applyNotes(out, kind, pn);
         out.verdict = out.err.length ? 'err' : out.warn.length ? 'warn' : 'ok';
@@ -3738,7 +3776,8 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&a
 const state = { client: null, clientName: '', lumiWb: null, lumiName: '' };
 const hide = (id, h) => $(id).classList.toggle('cx-hide', h);
 
-function showMsg(t) { const m = $('msg'); m.textContent = t; m.style.display = t ? 'block' : 'none'; }
+function showMsg(t, soft) { const m = $('msg'); m.textContent = t; m.style.display = t ? 'block' : 'none';
+  m.style.background = soft ? 'var(--amber-bg)' : 'var(--red-bg)'; m.style.color = soft ? 'var(--amber-badge)' : 'var(--red-badge)'; }
 
 function readFile(file) {
   return new Promise((ok, ko) => {
@@ -3808,6 +3847,7 @@ function run() {
     $('sumLumi').textContent = state.lumiName;
     hide('filesBlk', true); hide('filesSum', false);
     render(res);
+    if (lumi.reduced) showMsg('Contrôle réduit : cet export Luminovo (scénario de sourcing) ne contient pas la description de nos pièces. Valeur et boîtier sont contrôlés via l\'IPN, mais la tolérance, la tension et le diélectrique ne peuvent pas être vérifiés. Pour un contrôle complet, utiliser l\'export BOM.', 1);
     const lost = res.filter(r => r.warn.some(w => /^Repère (absent|présent chez nous)/.test(w))).length;
     if (res.length && lost / res.length > 0.5) showMsg('Attention : plus de la moitié des repères ne se retrouvent pas d\'un fichier à l\'autre. Les deux fichiers concernent-ils bien la même carte ?');
     const notes = state.client.notes || [];
@@ -3835,7 +3875,8 @@ function clientSide(c) {
 function lumiSide(l) {
   if (!l) return '<div class="cx-side"><div class="cx-cap">Chez nous (Luminovo)</div><div class="cx-empty">Absent de Luminovo</div></div>';
   return '<div class="cx-side"><div class="cx-cap">Chez nous (Luminovo)</div>' + kv([
-    ['IPN', l.ipn.replace(/\s*[;\n]\s*/g, ' / '), 1], ['MPN', l.mpn, 1], ['Boîtier', l.pkg], ['Description', l.desc]]) + '</div>';
+    ['IPN', l.ipn.replace(/\s*[;\n]\s*/g, ' / '), 1], ['MPN', l.mpn, 1], ['Boîtier', l.pkg], ['Montage', l.mount],
+    ['Description', l.desc], ['Notes PP', l.note]]) + '</div>';
 }
 function lineHtml(r) {
   const li = [];
