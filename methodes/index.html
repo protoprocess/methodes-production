@@ -1581,7 +1581,7 @@
    Règles connues = décisions du pôle méthodes (Jérôme, 08-09/10/2026). L'outil PROPOSE, la personne qui signe DÉCIDE.
    Pour ajouter une série : nouvelle entrée dans SENS_REGLES + incrémenter SENS_REGLES_VER. */
 (function(){
-  var SENS_VER = '1.1', SENS_REGLES_VER = '1.0 — 09/10/2026';
+  var SENS_VER = '1.2', SENS_REGLES_VER = '1.0 — 09/10/2026';
 
   /* classe : 'sens' (à sens, repère à regarder) | 'impose' (ne se monte que d'une façon) | 'sans' (pas de sens)
      corps  : 'meme' | 'oppose' — position du repère du corps par rapport au pin 1
@@ -1740,7 +1740,7 @@
       return { txt:'Incliné (' + P['Mating Orientation'] + ') : vérifie de quel côté sortent les fils.', ok:false };
     if (/Polariz|Keyed|Key\b|Shroud/i.test(tout))
       return { txt:'Détrompeur / capot : à sens — lis le repère du corps sur la datasheet.', ok:false };
-    return { txt:'Pas de détrompeur indiqué sur la fiche : regarde la datasheet (repère du corps vs pin 1).', ok:false };
+    return { txt:'La fiche ' + (f.source || 'fournisseur') + ' ne dit rien sur un détrompeur, ce qui ne veut pas dire qu\'il n\'y en a pas. Ouvre la datasheet : pin 1 et repère du corps.', ok:false };
   }
   function ficheHtml(f){
     if (!f) return '';
@@ -3738,7 +3738,7 @@ window.aoi_runConvert = runConvert;
 <script>
 /* ---- onglets Methodes v4.0 ---- */
 (function(){
-  var APP_VERSION_G = "5.11", APP_DATE_G = "09/10/2026"; // v5.11 : Sens connecteurs v1.1 — recherche automatique des fiches DigiKey/Mouser (gratuit, sans IA) pour les connecteurs non connus — v5.10 : onglet « Sens connecteurs » v1.0 — feuille sens des connecteurs (tri depuis la BOM, pièges connus TFML/TFC/TEM, décision + signature méthodes, feuille PDF pour le poste ; chantier 203) — v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
+  var APP_VERSION_G = "5.12", APP_DATE_G = "09/10/2026"; // v5.12 : Sens connecteurs v1.2 — texte « pas de détrompeur » clarifié (c'est la fiche fournisseur qui ne dit rien, pas la datasheet) — v5.11 : Sens connecteurs v1.1 — recherche automatique des fiches DigiKey/Mouser (gratuit, sans IA) pour les connecteurs non connus — v5.10 : onglet « Sens connecteurs » v1.0 — feuille sens des connecteurs (tri depuis la BOM, pièges connus TFML/TFC/TEM, décision + signature méthodes, feuille PDF pour le poste ; chantier 203) — v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
   document.title = "MYCenter Prep \u2014 v" + APP_VERSION_G + " \u2014 " + APP_DATE_G;
   function poser(){
     var h = document.getElementById('hdr-version');
