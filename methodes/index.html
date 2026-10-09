@@ -1515,6 +1515,13 @@
 #pane-sens .sx-legend b{color:var(--text)}
 #pane-sens .sx-err{color:var(--red);font-size:12.5px;margin-top:8px}
 #pane-sens svg.sx-pict{display:block;margin-top:6px}
+#pane-sens .sx-fiche{margin-top:6px;padding:7px 9px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius)}
+#pane-sens .sx-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+#pane-sens .sx-chips span{font-size:11px;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 6px;color:var(--text2)}
+#pane-sens .sx-chips span b{color:var(--text);font-weight:500}
+#pane-sens .sx-links a{color:var(--pp-blue);font-size:12px;text-decoration:none;margin-right:12px}
+#pane-sens .sx-hint{margin-top:5px;font-size:12px;color:var(--amber)}
+#pane-sens .sx-hint.ok{color:var(--green)}
 </style>
 
 <div class="pane" id="pane-sens">
@@ -1547,6 +1554,7 @@
     <section class="sx-blk">
       <h2><i class="ti ti-arrows-exchange"></i>3. Connecteurs — décision ligne par ligne</h2>
       <div class="sx-tiles" id="sens-tiles"></div>
+      <div class="sx-msg" id="sens-rech" style="margin:-4px 0 12px"></div>
       <div class="sx-tw"><table>
         <thead><tr><th>Repères</th><th>Référence</th><th>Ce que l'outil sait</th><th>Ta décision</th></tr></thead>
         <tbody id="sens-rows"></tbody>
@@ -1568,11 +1576,12 @@
 </div>
 
 <script>
-/* ===== Onglet Sens — v1.0 (MYCenter Prep v5.10, 09/10/2026) =====
+/* ===== Onglet Sens connecteurs — v1.1 (MYCenter Prep v5.11, 09/10/2026) : fiches DigiKey/Mouser via n8n (TtkXEUnmuoFj7UZ4), sans IA =====
+   v1.0 (v5.10) : tri BOM, pièges connus, décision + signature, feuille PDF.
    Règles connues = décisions du pôle méthodes (Jérôme, 08-09/10/2026). L'outil PROPOSE, la personne qui signe DÉCIDE.
    Pour ajouter une série : nouvelle entrée dans SENS_REGLES + incrémenter SENS_REGLES_VER. */
 (function(){
-  var SENS_VER = '1.0', SENS_REGLES_VER = '1.0 — 09/10/2026';
+  var SENS_VER = '1.1', SENS_REGLES_VER = '1.0 — 09/10/2026';
 
   /* classe : 'sens' (à sens, repère à regarder) | 'impose' (ne se monte que d'une façon) | 'sans' (pas de sens)
      corps  : 'meme' | 'oppose' — position du repère du corps par rapport au pin 1
@@ -1688,6 +1697,63 @@
     restaurer();
     $('sens-work').classList.remove('sx-hide');
     dessiner();
+    rechercher();
+  }
+
+  /* ---------- recherche fiches fournisseurs (v1.1) : DigiKey puis Mouser, via n8n — gratuit, sans IA ---------- */
+  var URL_RECH = 'https://protoprocess.app.n8n.cloud/webhook/sens-connecteurs-recherche';
+  function rechercher(){
+    var aChercher = LIGNES.filter(function(l){ return l.mpn && !(l.regle && l.regle.valide) && !l.fiche; });
+    var msg = $('sens-rech');
+    if (!aChercher.length) { msg.textContent = ''; return; }
+    if (location.hostname !== 'protoprocess.github.io') { msg.textContent = 'Recherche des fiches fournisseurs indisponible hors de la version en ligne.'; return; }
+    msg.innerHTML = '<i class="ti ti-loader-2"></i> Recherche des fiches DigiKey / Mouser pour ' + aChercher.length + ' connecteur(s)…';
+    var mpns = aChercher.map(function(l){ return l.mpn; });
+    fetch(URL_RECH, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ mpns: mpns }) })
+      .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(d){
+        var res = (d && d.resultats) || [], n = 0;
+        LIGNES.forEach(function(l){
+          var f = res.filter(function(x){ return String(x.mpn).toUpperCase() === String(l.mpn).toUpperCase(); })[0];
+          if (!f) return;
+          l.fiche = f; if (f.trouve) n++;
+          var p = proposer(f);
+          if (p.classe && !l.classe) { l.classe = p.classe; l.ok = false; }
+        });
+        msg.textContent = 'Fiches fournisseurs : ' + n + ' trouvée(s) sur ' + mpns.length + '. Rien n\'est coché : relis et valide chaque ligne.';
+        sauver(); dessiner();
+      })
+      .catch(function(e){ msg.textContent = 'Recherche des fiches impossible (' + e.message + '). Tu peux continuer à la main.'; });
+  }
+  /* lecture de la fiche : seul le coudé (plusieurs broches) pré-remplit « Sens imposé » ; le reste = indices */
+  function proposer(f){
+    if (!f || !f.trouve) return { txt:'Pas de fiche trouvée : datasheet à chercher à la main.', ok:false };
+    var P = f.params || {}, tout = (f.description || '') + ' ' + Object.keys(P).map(function(k){ return k + ' ' + P[k]; }).join(' ');
+    var pos = parseInt(P['Number of Positions'] || P['Number of Positions/Contacts'] || '', 10);
+    if (/\b1 (Pin|Position)\b/i.test(f.description || '') || pos === 1)
+      return { txt:'1 seule broche : probablement sans sens si l\'empreinte est symétrique. À confirmer.', ok:false };
+    if (/D-Sub|D-Shaped/i.test(tout))
+      return { classe:'impose', txt:'Corps en D : ne se monte que d\'une façon (sens imposé).', ok:true };
+    if (/Right Angle/i.test(P['Mounting Type'] || '') || /Right Angle/i.test(P['Orientation'] || ''))
+      return { classe:'impose', txt:'Coudé (Right Angle) : sens imposé, sortie en bord de carte.', ok:true };
+    if (/Angle with Board/i.test(P['Mating Orientation'] || ''))
+      return { txt:'Incliné (' + P['Mating Orientation'] + ') : vérifie de quel côté sortent les fils.', ok:false };
+    if (/Polariz|Keyed|Key\b|Shroud/i.test(tout))
+      return { txt:'Détrompeur / capot : à sens — lis le repère du corps sur la datasheet.', ok:false };
+    return { txt:'Pas de détrompeur indiqué sur la fiche : regarde la datasheet (repère du corps vs pin 1).', ok:false };
+  }
+  function ficheHtml(f){
+    if (!f) return '';
+    var p = proposer(f);
+    if (!f.trouve) return '<div class="sx-fiche"><span class="sx-badge sx-b-warn">Fiche introuvable</span><div class="sx-hint">' + esc(p.txt) + '</div></div>';
+    var P = f.params || {};
+    var chips = Object.keys(P).map(function(k){ return '<span>' + esc(k) + ' : <b>' + esc(P[k]) + '</b></span>'; }).join('');
+    return '<div class="sx-fiche"><span class="sx-badge sx-b-ok">Fiche ' + esc(f.source) + '</span> <b style="font-size:12px">' + esc(f.fabricant || '') + '</b>' +
+      '<div class="sx-why">' + esc(f.description || '') + '</div>' +
+      (chips ? '<div class="sx-chips">' + chips + '</div>' : '') +
+      '<div class="sx-hint' + (p.ok ? ' ok' : '') + '">→ ' + esc(p.txt) + '</div>' +
+      '<div class="sx-links" style="margin-top:5px">' + (f.datasheet ? '<a href="' + esc(f.datasheet) + '" target="_blank" rel="noopener"><i class="ti ti-file-type-pdf"></i> Datasheet</a>' : '') +
+      (f.lien ? '<a href="' + esc(f.lien) + '" target="_blank" rel="noopener"><i class="ti ti-external-link"></i> Fiche ' + esc(f.source) + '</a>' : '') + '</div></div>';
   }
 
   /* brouillon par fichier : confort seulement (le navigateur peut l'oublier) */
@@ -1733,10 +1799,11 @@
       if (r && r.piege) piege++; else if (!r || !r.valide) nouv++; else conn++;
       if (etat(l)) fait++;
       var savoir = !r
-        ? '<span class="sx-badge sx-b-warn">À analyser</span><div class="sx-why">Série inconnue : ouvre la datasheet, cherche le repère du corps et compare-le au pin 1 du plan.</div>'
+        ? '<span class="sx-badge sx-b-warn">À analyser</span><div class="sx-why">Série inconnue : cherche le repère du corps et compare-le au pin 1 du plan.</div>'
         : '<span class="sx-badge ' + (r.piege ? 'sx-b-err' : r.valide ? 'sx-b-ok' : 'sx-b-warn') + '">' + (r.piege ? 'PIÈGE CONNU' : r.valide ? 'Série connue' : 'Piste à confirmer') + '</span> ' +
           '<b style="font-size:12px">' + esc(r.nom) + '</b><div class="sx-why">' + r.pourquoi + '</div>' +
           (r.classe === 'sens' && r.corps ? pict(r.corps) : '') + '<div class="sx-s">' + esc(r.source) + '</div>';
+      savoir += ficheHtml(l.fiche);
       var opts = '<option value="">— choisir —</option>' + Object.keys(CLASSES).map(function(k){ return '<option value="' + k + '"' + (l.classe === k ? ' selected' : '') + '>' + CLASSES[k] + '</option>'; }).join('');
       var detail = l.classe === 'sens'
         ? '<input type="text" data-i="' + i + '" data-k="pin1" value="' + esc(l.pin1) + '" placeholder="Pin 1 sur le plan (ex. coin coupé bas-gauche)">' +
@@ -1780,7 +1847,7 @@
     var des = prompt('Repère(s) du connecteur oublié (ex. J22) :'); if (!des) return;
     var mpn = prompt('Référence (MPN) :') || '';
     LIGNES.push({ des:des.trim(), mpn:mpn.trim(), ipn:'', regle:regle(mpn.trim(), ''), classe:'', corps:'', pin1:'', note:'', ok:false, ajout:true });
-    sauver(); dessiner();
+    sauver(); dessiner(); rechercher();
   });
   $('sens-qui').addEventListener('change', function(){ try { localStorage.setItem('pp_sens_qui', this.value.trim()); } catch(e){} });
 
@@ -3671,7 +3738,7 @@ window.aoi_runConvert = runConvert;
 <script>
 /* ---- onglets Methodes v4.0 ---- */
 (function(){
-  var APP_VERSION_G = "5.10", APP_DATE_G = "09/10/2026"; // v5.10 : onglet « Sens connecteurs » v1.0 — feuille sens des connecteurs (tri depuis la BOM, pièges connus TFML/TFC/TEM, décision + signature méthodes, feuille PDF pour le poste ; chantier 203) — v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
+  var APP_VERSION_G = "5.11", APP_DATE_G = "09/10/2026"; // v5.11 : Sens connecteurs v1.1 — recherche automatique des fiches DigiKey/Mouser (gratuit, sans IA) pour les connecteurs non connus — v5.10 : onglet « Sens connecteurs » v1.0 — feuille sens des connecteurs (tri depuis la BOM, pièges connus TFML/TFC/TEM, décision + signature méthodes, feuille PDF pour le poste ; chantier 203) — v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
   document.title = "MYCenter Prep \u2014 v" + APP_VERSION_G + " \u2014 " + APP_DATE_G;
   function poser(){
     var h = document.getElementById('hdr-version');
