@@ -974,7 +974,7 @@
   <button data-pane="pane-exp">Expert</button>
   <button data-pane="pane-aoi">AOI</button>
   <button data-pane="pane-cmp">Comparateur BOM</button>
-  <button data-pane="pane-sens">Sens</button>
+  <button data-pane="pane-sens">Sens connecteurs</button>
 </nav>
 
 
@@ -1520,7 +1520,7 @@
 <div class="pane" id="pane-sens">
 <div class="sx-wrap">
   <p class="sx-intro">
-    <b>Feuille Sens des connecteurs.</b> Charge la BOM PP : l'outil garde les connecteurs et rappelle les pièges déjà connus.
+    <b>Sens connecteurs.</b> Charge la BOM PP : l'outil garde les connecteurs et rappelle les pièges déjà connus.
     <b>C'est toi qui décides</b> pour chaque ligne. Une fois tout coché, tu valides : la feuille signée (nom + date) s'ouvre.
     Enregistre-la en PDF dans le dossier de la carte, l'opérateur l'ouvre au poste.
     <span class="sx-s" id="sens-ver"></span>
@@ -1572,7 +1572,7 @@
    Règles connues = décisions du pôle méthodes (Jérôme, 08-09/10/2026). L'outil PROPOSE, la personne qui signe DÉCIDE.
    Pour ajouter une série : nouvelle entrée dans SENS_REGLES + incrémenter SENS_REGLES_VER. */
 (function(){
-  var SENS_VER = '1.0', SENS_REGLES_VER = '1.0 — 09/10/2026';
+  var SENS_VER = '1.0.1', SENS_REGLES_VER = '1.0 — 09/10/2026';
 
   /* classe : 'sens' (à sens, repère à regarder) | 'impose' (ne se monte que d'une façon) | 'sans' (pas de sens)
      corps  : 'meme' | 'oppose' — position du repère du corps par rapport au pin 1
@@ -1613,7 +1613,7 @@
   var esc = function(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
   var LIGNES = [], FICHIER = '';
 
-  $('sens-ver').textContent = '· onglet Sens v' + SENS_VER + ' · règles ' + SENS_REGLES_VER;
+  $('sens-ver').textContent = '· Sens connecteurs v' + SENS_VER + ' · règles ' + SENS_REGLES_VER;
   try { $('sens-qui').value = localStorage.getItem('pp_sens_qui') || ''; } catch(e){}
 
   /* ---------- lecture BOM ---------- */
@@ -1801,7 +1801,7 @@
         '<td>' + esc(l.note) + '</td><td class="case">☐</td></tr>';
     }).join('');
     var lignesImp = impose.map(function(l){ return '<tr><td class="rep">' + esc(l.des) + '</td><td class="m">' + esc(l.mpn) + '</td><td colspan="2">Sens imposé par la forme / l\'empreinte — ne se monte que d\'une façon</td><td>' + esc(l.note) + '</td><td class="case">☐</td></tr>'; }).join('');
-    var titre = 'FeuilleSens_' + (so || 'SO') + '_' + carte.replace(/[^\w.-]+/g, '_');
+    var titre = 'SensConnecteurs_' + (so || 'SO') + '_' + carte.replace(/[^\w.-]+/g, '_');
     var html = '<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>' + esc(titre) + '</title><style>' +
       'body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:18px;font-size:12px}h1{font-size:18px;margin:0 0 4px}' +
       '.hd{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #F07B1F;padding-bottom:8px;margin-bottom:12px}' +
@@ -1813,8 +1813,8 @@
       'svg text{fill:#333}@media print{.noprint{display:none}body{margin:8mm}}' +
       '.noprint{background:#FAEEDA;border:1px solid #854F0B;padding:8px 10px;margin-bottom:12px}</style></head><body>' +
       '<div class="noprint">Enregistre cette feuille en <b>PDF</b> (Imprimer → « Enregistrer au format PDF ») dans le dossier de la carte, nom proposé : <b>' + esc(titre) + '.pdf</b> <button onclick="window.print()">Imprimer / PDF</button></div>' +
-      '<div class="hd"><div><h1>Feuille Sens — connecteurs</h1><div><b>' + esc(carte) + '</b>' + (so ? ' · ' + esc(so) : '') + '</div>' +
-      '<div class="s">BOM : ' + esc(FICHIER) + ' · MYCenter Prep ' + esc(verApp) + ' · onglet Sens v' + SENS_VER + ' · règles ' + SENS_REGLES_VER + '</div></div>' +
+      '<div class="hd"><div><h1>Sens connecteurs</h1><div><b>' + esc(carte) + '</b>' + (so ? ' · ' + esc(so) : '') + '</div>' +
+      '<div class="s">BOM : ' + esc(FICHIER) + ' · MYCenter Prep ' + esc(verApp) + ' · Sens connecteurs v' + SENS_VER + ' · règles ' + SENS_REGLES_VER + '</div></div>' +
       '<div class="sig">Validée par <b>' + esc(qui) + '</b><br>le ' + quand + '</div></div>' +
       '<h2>À sens — vérifier le repère du corps avant de poser (' + aSens.length + ')</h2>' +
       (aSens.length ? '<table><thead><tr><th>Repères</th><th>Référence</th><th>Pin 1 sur le plan</th><th>Repère du corps</th><th>Note</th><th>1er art.</th></tr></thead><tbody>' + lignesSens + '</tbody></table>' : '<p class="s">Aucun.</p>') +
@@ -3671,7 +3671,7 @@ window.aoi_runConvert = runConvert;
 <script>
 /* ---- onglets Methodes v4.0 ---- */
 (function(){
-  var APP_VERSION_G = "5.10", APP_DATE_G = "09/10/2026"; // v5.10 : onglet « Sens » v1.0 — feuille sens des connecteurs (tri depuis la BOM, pièges connus TFML/TFC/TEM, décision + signature méthodes, feuille PDF pour le poste ; chantier 203) — v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
+  var APP_VERSION_G = "5.10.1", APP_DATE_G = "09/10/2026"; // v5.10.1 : onglet renommé « Sens connecteurs » (Jérôme) — v5.10 : onglet « Sens » v1.0 — feuille sens des connecteurs (tri depuis la BOM, pièges connus TFML/TFC/TEM, décision + signature méthodes, feuille PDF pour le poste ; chantier 203) — v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
   document.title = "MYCenter Prep \u2014 v" + APP_VERSION_G + " \u2014 " + APP_DATE_G;
   function poser(){
     var h = document.getElementById('hdr-version');
