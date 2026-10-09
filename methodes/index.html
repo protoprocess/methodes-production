@@ -974,6 +974,7 @@
   <button data-pane="pane-exp">Expert</button>
   <button data-pane="pane-aoi">AOI</button>
   <button data-pane="pane-cmp">Comparateur BOM</button>
+  <button data-pane="pane-sens">Sens</button>
 </nav>
 
 
@@ -1461,6 +1462,374 @@
   </div>
 </div>
 </div>
+
+<!-- ===== Onglet Sens (feuille sens des connecteurs) — ajouté en v5.10, chantier 203 ===== -->
+<style>
+#pane-sens .sx-wrap{max-width:min(96vw,1500px);margin:0 auto;padding:22px 16px 60px}
+#pane-sens .sx-intro{font-size:13px;color:var(--text2);margin:0 0 14px;max-width:900px}
+#pane-sens .sx-intro b{color:var(--text)}
+#pane-sens .sx-blk{background:var(--surface2);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:16px}
+#pane-sens .sx-blk h2{margin:0 0 12px;font-size:15px;font-weight:500;display:flex;align-items:center;gap:8px}
+#pane-sens .sx-drop{border:1px dashed var(--border2);border-radius:var(--radius-lg);padding:22px;text-align:center;cursor:pointer;background:var(--surface);color:var(--text2);font-size:13px}
+#pane-sens .sx-drop:hover,#pane-sens .sx-drop.sx-over{border-color:var(--blue);color:var(--text)}
+#pane-sens .sx-drop b{color:var(--text)}
+#pane-sens .sx-hide{display:none !important}
+#pane-sens .sx-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+#pane-sens .sx-meta label{display:block;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+#pane-sens input[type=text],#pane-sens select{width:100%;box-sizing:border-box;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:6px 8px;font-size:12.5px;font-family:inherit}
+#pane-sens .sx-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px}
+#pane-sens .sx-tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:10px 14px}
+#pane-sens .sx-tile .n{font-size:24px;font-weight:600;line-height:1.1}
+#pane-sens .sx-tile .l{font-size:10.5px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-top:3px}
+#pane-sens .sx-tile.r{border-left:3px solid var(--red-badge)} #pane-sens .sx-tile.r .n{color:var(--red)}
+#pane-sens .sx-tile.a{border-left:3px solid var(--amber-badge)} #pane-sens .sx-tile.a .n{color:var(--amber)}
+#pane-sens .sx-tile.g{border-left:3px solid var(--green-badge)} #pane-sens .sx-tile.g .n{color:var(--green)}
+#pane-sens .sx-tw{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface)}
+#pane-sens table{border-collapse:collapse;width:100%;min-width:1100px}
+#pane-sens th{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);text-align:left;padding:9px 10px;border-bottom:1px solid var(--border);background:var(--surface2);white-space:nowrap}
+#pane-sens td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top;font-size:12.5px}
+#pane-sens tr.sx-piege td:first-child{box-shadow:inset 3px 0 0 var(--red-badge)}
+#pane-sens tr.sx-new td:first-child{box-shadow:inset 3px 0 0 var(--amber-badge)}
+#pane-sens tr.sx-known td:first-child{box-shadow:inset 3px 0 0 var(--green-badge)}
+#pane-sens tr.sx-done{opacity:.72}
+#pane-sens .sx-m{font-family:var(--mono,Consolas,monospace);font-size:11.5px}
+#pane-sens .sx-rep{font-family:var(--mono,Consolas,monospace);font-size:11px;color:var(--text2)}
+#pane-sens .sx-s{font-size:11px;color:var(--text3)}
+#pane-sens .sx-badge{display:inline-block;font-size:10.5px;padding:2px 8px;border-radius:20px;font-weight:600;white-space:nowrap}
+#pane-sens .sx-b-ok{background:var(--green-bg);color:var(--green-badge)}
+#pane-sens .sx-b-warn{background:var(--amber-bg);color:var(--amber-badge)}
+#pane-sens .sx-b-err{background:var(--red-bg);color:var(--red-badge)}
+#pane-sens .sx-why{font-size:12px;color:var(--text2);margin-top:4px}
+#pane-sens .sx-why b{color:var(--text)}
+#pane-sens .sx-dec{display:grid;gap:6px;min-width:260px}
+#pane-sens .sx-chk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text);cursor:pointer}
+#pane-sens .sx-chk input{accent-color:var(--blue);width:16px;height:16px}
+#pane-sens .sx-btn{padding:7px 14px;background:transparent;color:var(--text2);border:0.5px solid var(--border2);border-radius:var(--radius);font-size:12px;cursor:pointer;font-family:inherit}
+#pane-sens .sx-btn:hover{color:var(--text);border-color:var(--text3)}
+#pane-sens .sx-btn-p{padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:var(--radius);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit}
+#pane-sens .sx-btn-p[disabled]{opacity:.4;cursor:not-allowed}
+#pane-sens .sx-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
+#pane-sens .sx-msg{font-size:12px;color:var(--text2)}
+#pane-sens .sx-legend{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+#pane-sens .sx-legend span{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:3px 8px;font-size:11.5px;color:var(--text2)}
+#pane-sens .sx-legend b{color:var(--text)}
+#pane-sens .sx-err{color:var(--red);font-size:12.5px;margin-top:8px}
+#pane-sens svg.sx-pict{display:block;margin-top:6px}
+</style>
+
+<div class="pane" id="pane-sens">
+<div class="sx-wrap">
+  <p class="sx-intro">
+    <b>Feuille Sens des connecteurs.</b> Charge la BOM PP : l'outil garde les connecteurs et rappelle les pièges déjà connus.
+    <b>C'est toi qui décides</b> pour chaque ligne. Une fois tout coché, tu valides : la feuille signée (nom + date) s'ouvre.
+    Enregistre-la en PDF dans le dossier de la carte, l'opérateur l'ouvre au poste.
+    <span class="sx-s" id="sens-ver"></span>
+  </p>
+
+  <section class="sx-blk">
+    <h2><i class="ti ti-file-spreadsheet"></i>1. BOM de la carte</h2>
+    <div class="sx-drop" id="sens-drop"><i class="ti ti-upload" style="font-size:22px"></i><br><b>Dépose la BOM ici</b> ou clique pour choisir (.ods, .xlsx, .csv)<br><span class="sx-s">Il faut une colonne Designator (repères) et une colonne MPN.</span></div>
+    <input type="file" id="sens-file" accept=".ods,.xlsx,.xls,.csv,.txt" class="sx-hide">
+    <div id="sens-ferr" class="sx-err"></div>
+  </section>
+
+  <div id="sens-work" class="sx-hide">
+    <section class="sx-blk">
+      <h2><i class="ti ti-id"></i>2. Dossier</h2>
+      <div class="sx-meta">
+        <div><label>Client / carte</label><input type="text" id="sens-carte"></div>
+        <div><label>SO</label><input type="text" id="sens-so" placeholder="SO26xx-xxx"></div>
+        <div><label>Validé par</label><input type="text" id="sens-qui" placeholder="Prénom NOM"></div>
+        <div><label>Fichier BOM</label><input type="text" id="sens-fic" disabled></div>
+      </div>
+    </section>
+
+    <section class="sx-blk">
+      <h2><i class="ti ti-arrows-exchange"></i>3. Connecteurs — décision ligne par ligne</h2>
+      <div class="sx-tiles" id="sens-tiles"></div>
+      <div class="sx-tw"><table>
+        <thead><tr><th>Repères</th><th>Référence</th><th>Ce que l'outil sait</th><th>Ta décision</th></tr></thead>
+        <tbody id="sens-rows"></tbody>
+      </table></div>
+      <div class="sx-legend">
+        <span>Lire le plan :</span><span><b>coin coupé / triangle / point</b> = pin 1</span>
+        <span>Lire la pièce :</span><span><b>encoche dans la paroi, à un seul bout</b> = repère de sens</span><span><b>chanfreins aux deux bouts</b> = guidage, pas de sens</span>
+        <span><b>coudé</b> ou <b>empreinte asymétrique</b> = sens imposé</span><span><b>barrette simple</b> (picots nus) = sans sens</span>
+      </div>
+      <div class="sx-bar">
+        <button class="sx-btn" id="sens-add"><i class="ti ti-plus"></i> Ajouter un connecteur oublié</button>
+        <div style="flex:1"></div>
+        <span class="sx-msg" id="sens-reste"></span>
+        <button class="sx-btn-p" id="sens-valider" disabled><i class="ti ti-signature"></i> Valider et signer la feuille</button>
+      </div>
+    </section>
+  </div>
+</div>
+</div>
+
+<script>
+/* ===== Onglet Sens — v1.0 (MYCenter Prep v5.10, 09/10/2026) =====
+   Règles connues = décisions du pôle méthodes (Jérôme, 08-09/10/2026). L'outil PROPOSE, la personne qui signe DÉCIDE.
+   Pour ajouter une série : nouvelle entrée dans SENS_REGLES + incrémenter SENS_REGLES_VER. */
+(function(){
+  var SENS_VER = '1.0', SENS_REGLES_VER = '1.0 — 09/10/2026';
+
+  /* classe : 'sens' (à sens, repère à regarder) | 'impose' (ne se monte que d'une façon) | 'sans' (pas de sens)
+     corps  : 'meme' | 'oppose' — position du repère du corps par rapport au pin 1
+     valide : true = tranché par méthodes ; false = simple piste, la ligne reste « à analyser » */
+  var SENS_REGLES = [
+    { re:/^(TFML|TFM|TFC)-/i, nom:'Samtec Tiger Eye (TFM / TFML / TFC)', classe:'sens', corps:'oppose', piege:true, valide:true,
+      pourquoi:'Encoche et coins coupés du corps à l\'extrémité <b>OPPOSÉE</b> au pin 1. Le plan marque le pin 1 par un coin coupé : même signe, bouts opposés.',
+      source:'Datasheet TFML rév. AH fig. 1 et 3, TFC F-217 — NC SICPA du 08/10/2026 (40 connecteurs retournés)' },
+    { re:/^TEM-/i, nom:'Samtec Micro Tiger Eye (TEM)', classe:'sens', corps:'meme', valide:true,
+      pourquoi:'Angle coupé et ergot du capot <b>du même côté</b> que le pin 1. Différent du TFML : la règle se tient par série.',
+      source:'Catalogue Samtec F-226 + vue 3D client (SICPA, 08/10/2026)' },
+    { re:/^T1M-\d+-[A-Z]-SV/i, nom:'Samtec T1M vertical CMS', classe:'impose', valide:true,
+      pourquoi:'Broches d\'un seul côté, pattes de fixation de l\'autre : retourné, il ne tombe pas sur les pastilles.',
+      source:'Méthodes 08/10/2026 (SICPA J11)' },
+    { re:/^(HTSW|TSW|MTSW|M20-99|M20-97)/i, nom:'Barrette simple (picots nus)', classe:'sans', valide:true,
+      pourquoi:'Barrette sans capot ni détrompeur : pas de sens, même si le plan dessine un coin coupé.',
+      source:'Méthodes 08/10/2026' },
+    { ipn:/BARRETTE/i, nom:'Barrette (code interne)', classe:'sans', valide:true,
+      pourquoi:'Barrette simple : pas de sens. Vérifie qu\'il n\'y a pas de capot / détrompeur.',
+      source:'Méthodes 08/10/2026' },
+    { re:/^0923\s?148\s?6921$/i, nom:'Harting DIN 41612 coudé', classe:'impose', valide:true,
+      pourquoi:'Connecteur coudé : sortie en bord de carte, ne se monte que d\'une façon.', source:'Méthodes 08/10/2026 (SICPA J3)' },
+    { re:/^9282486804791$/, nom:'Würth coudé', classe:'impose', valide:true,
+      pourquoi:'Connecteur coudé : ne se monte que d\'une façon.', source:'Méthodes 08/10/2026 (SICPA J4)' },
+    { re:/^7466\d{4}R?$/i, nom:'Würth REDCUBE CMS (borne 1 broche)', classe:'sans', valide:false,
+      pourquoi:'Piste : borne à 1 seule broche, empreinte symétrique, taraudage traversant → retournée, elle est identique. À confirmer sur la pièce.',
+      source:'Datasheet 74663125R (HORIBA Optoswitch, 09/10/2026)' },
+    { re:/^SM\d+B-XSRS/i, nom:'JST XSRS CMS', classe:'impose', valide:false,
+      pourquoi:'Piste : empreinte asymétrique (pattes de fixation décalées) → sens imposé. À confirmer.',
+      source:'Plan HORIBA Optoswitch J3 (09/10/2026)' }
+  ];
+
+  var CLASSES = { sens:'À sens — repère à respecter', impose:'Sens imposé (forme / empreinte)', sans:'Sans sens', hors:'Pas un connecteur' };
+  var PREFIXE = /^(J|JP|X|XS|XP|P|CN|CON|SK|K?CN)\d+/i;
+  var MOTS = /(CONN|HEADER|BARRETTE|SOCKET|EMBASE|BORNIER|TERMINAL|RECEPTACLE)/i;
+
+  var $ = function(id){ return document.getElementById(id); };
+  var esc = function(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+  var LIGNES = [], FICHIER = '';
+
+  $('sens-ver').textContent = '· onglet Sens v' + SENS_VER + ' · règles ' + SENS_REGLES_VER;
+  try { $('sens-qui').value = localStorage.getItem('pp_sens_qui') || ''; } catch(e){}
+
+  /* ---------- lecture BOM ---------- */
+  var drop = $('sens-drop'), inp = $('sens-file');
+  drop.addEventListener('click', function(){ inp.click(); });
+  drop.addEventListener('dragover', function(e){ e.preventDefault(); drop.classList.add('sx-over'); });
+  drop.addEventListener('dragleave', function(){ drop.classList.remove('sx-over'); });
+  drop.addEventListener('drop', function(e){ e.preventDefault(); drop.classList.remove('sx-over'); if (e.dataTransfer.files[0]) lire(e.dataTransfer.files[0]); });
+  inp.addEventListener('change', function(){ if (inp.files[0]) lire(inp.files[0]); inp.value = ''; });
+
+  function lire(f){
+    $('sens-ferr').textContent = '';
+    var rd = new FileReader(), csv = /\.(csv|txt)$/i.test(f.name);
+    rd.onload = function(){
+      try {
+        var wb = csv ? XLSX.read(rd.result, { type:'string' }) : XLSX.read(new Uint8Array(rd.result), { type:'array' });
+        var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:'' });
+        analyser(rows, f.name);
+      } catch(err) { $('sens-ferr').textContent = 'Lecture impossible : ' + err.message; }
+    };
+    if (csv) rd.readAsText(f, 'utf-8'); else rd.readAsArrayBuffer(f);
+  }
+
+  function colonnes(rows){
+    for (var i = 0; i < Math.min(rows.length, 30); i++){
+      var c = { des:-1, qty:-1, ipn:-1, mpn:-1, mfr:-1, desc:-1, mnt:-1, pkg:-1 };
+      rows[i].forEach(function(v, j){
+        var t = String(v).toLowerCase().trim();
+        if (c.des < 0 && /^(designator|designators|rep[eè]res?|refdes|ref des|r[eé]f[eé]rence topo|reference designators?|r[eé]f\.? topo)$/.test(t)) c.des = j;
+        else if (c.qty < 0 && /^(qty|quantit[eé]|qt[eé]|quantity)$/.test(t)) c.qty = j;
+        else if (c.ipn < 0 && /(internal part number|^ipn$|code interne)/.test(t)) c.ipn = j;
+        else if (c.mpn < 0 && /(^mpn$|manufacturer part|r[eé]f\.? fabricant|^part number$)/.test(t)) c.mpn = j;
+        else if (c.mfr < 0 && /^(manufacturer|fabricant|mfr)$/.test(t)) c.mfr = j;
+        else if (c.desc < 0 && /^(description|d[eé]signation)$/.test(t)) c.desc = j;
+        else if (c.mnt < 0 && /^(mounting|montage|type de montage)$/.test(t)) c.mnt = j;
+        else if (c.pkg < 0 && /^(package|bo[iî]tier|footprint)$/.test(t)) c.pkg = j;
+      });
+      if (c.des >= 0 && (c.mpn >= 0 || c.ipn >= 0)) { c.ligne = i; return c; }
+    }
+    return null;
+  }
+
+  function regle(mpn, ipn){
+    for (var i = 0; i < SENS_REGLES.length; i++){
+      var r = SENS_REGLES[i];
+      if (r.re && r.re.test(mpn)) return r;
+      if (r.ipn && r.ipn.test(ipn)) return r;
+    }
+    return null;
+  }
+
+  function analyser(rows, nom){
+    var c = colonnes(rows);
+    if (!c) { $('sens-ferr').textContent = 'Colonnes « Designator » et « MPN » introuvables dans le 1er onglet.'; return; }
+    var g = function(r, k){ return c[k] >= 0 ? String(r[c[k]] == null ? '' : r[c[k]]).trim() : ''; };
+    LIGNES = [];
+    for (var i = c.ligne + 1; i < rows.length; i++){
+      var r = rows[i], des = g(r,'des'); if (!des) continue;
+      var mpn = g(r,'mpn'), ipn = g(r,'ipn'), desc = g(r,'desc');
+      var premier = des.split(/[\s,;]+/)[0];
+      if (!PREFIXE.test(premier) && !MOTS.test(ipn + ' ' + desc)) continue;
+      var rg = regle(mpn, ipn);
+      LIGNES.push({ des:des, qty:g(r,'qty'), mpn:mpn || ipn, ipn:ipn, mfr:g(r,'mfr'), desc:desc, mnt:g(r,'mnt'), pkg:g(r,'pkg'),
+        regle:rg, classe: rg && rg.valide ? rg.classe : '', corps: rg && rg.valide && rg.corps ? rg.corps : '', pin1:'', note:'', ok:false });
+    }
+    FICHIER = nom;
+    $('sens-fic').value = nom;
+    var base = nom.replace(/\.[^.]+$/, '');
+    var mSo = base.match(/SO\d{4}-\d+/i);
+    $('sens-carte').value = base.replace(/^BOM_PP[-_]?/i, '').replace(/^DOSSIER_PP_/i, '');
+    $('sens-so').value = mSo ? mSo[0].toUpperCase() : '';
+    restaurer();
+    $('sens-work').classList.remove('sx-hide');
+    dessiner();
+  }
+
+  /* brouillon par fichier : confort seulement (le navigateur peut l'oublier) */
+  function cle(){ return 'pp_sens_' + FICHIER; }
+  function sauver(){ try { localStorage.setItem(cle(), JSON.stringify(LIGNES.map(function(l){ return { des:l.des, mpn:l.mpn, classe:l.classe, corps:l.corps, pin1:l.pin1, note:l.note, ok:l.ok, ajout:!!l.ajout }; }))); } catch(e){} }
+  function restaurer(){
+    try {
+      var s = JSON.parse(localStorage.getItem(cle()) || 'null'); if (!s) return;
+      s.forEach(function(b){
+        var l = LIGNES.filter(function(x){ return x.des === b.des && x.mpn === b.mpn; })[0];
+        if (!l && b.ajout) { l = { des:b.des, mpn:b.mpn, ipn:'', ajout:true, regle:null }; LIGNES.push(l); }
+        if (l) { l.classe = b.classe; l.corps = b.corps; l.pin1 = b.pin1; l.note = b.note; l.ok = b.ok; }
+      });
+    } catch(e){}
+  }
+
+  /* petit dessin : corps vu de dessus, pin 1 (point) et repère du corps (encoche) */
+  function pict(corps, w){
+    w = w || 150; var h = Math.round(w * 0.27), y = Math.round(h * 0.22), bh = Math.round(h * 0.56);
+    var notchX = corps === 'oppose' ? w - 22 : 14;
+    return '<svg class="sx-pict" width="' + w + '" height="' + (h + 14) + '" viewBox="0 0 ' + w + ' ' + (h + 14) + '" aria-hidden="true">' +
+      '<rect x="6" y="' + y + '" width="' + (w - 12) + '" height="' + bh + '" rx="3" fill="none" stroke="#94a3b8" stroke-width="1.5"/>' +
+      '<rect x="' + notchX + '" y="' + (y - 1) + '" width="8" height="6" fill="#F07B1F"/>' +
+      '<circle cx="14" cy="' + (y + bh + 8) + '" r="4" fill="#f09595"/>' +
+      '<text x="22" y="' + (y + bh + 12) + '" font-size="9" fill="#94a3b8">pin 1</text>' +
+      '<text x="' + (corps === 'oppose' ? w - 70 : 30) + '" y="' + (y - 3 < 8 ? 9 : y - 3) + '" font-size="9" fill="#F07B1F">' + (corps === 'oppose' ? 'repère corps' : '← repère corps') + '</text>' +
+      '</svg>';
+  }
+
+  function etat(l){
+    if (!l.classe) return false;
+    if (l.classe === 'sens' && (!l.corps || !l.pin1)) return false;
+    return l.ok;
+  }
+
+  function dessiner(){
+    var piege = 0, nouv = 0, conn = 0, fait = 0;
+    var ordre = LIGNES.slice().sort(function(a, b){ return rang(a) - rang(b); });
+    function rang(l){ return l.regle && l.regle.piege ? 0 : (!l.regle || !l.regle.valide) ? 1 : 2; }
+    var h = ordre.map(function(l){
+      var i = LIGNES.indexOf(l), r = l.regle;
+      var cls = r && r.piege ? 'sx-piege' : (!r || !r.valide) ? 'sx-new' : 'sx-known';
+      if (r && r.piege) piege++; else if (!r || !r.valide) nouv++; else conn++;
+      if (etat(l)) fait++;
+      var savoir = !r
+        ? '<span class="sx-badge sx-b-warn">À analyser</span><div class="sx-why">Série inconnue : ouvre la datasheet, cherche le repère du corps et compare-le au pin 1 du plan.</div>'
+        : '<span class="sx-badge ' + (r.piege ? 'sx-b-err' : r.valide ? 'sx-b-ok' : 'sx-b-warn') + '">' + (r.piege ? 'PIÈGE CONNU' : r.valide ? 'Série connue' : 'Piste à confirmer') + '</span> ' +
+          '<b style="font-size:12px">' + esc(r.nom) + '</b><div class="sx-why">' + r.pourquoi + '</div>' +
+          (r.classe === 'sens' && r.corps ? pict(r.corps) : '') + '<div class="sx-s">' + esc(r.source) + '</div>';
+      var opts = '<option value="">— choisir —</option>' + Object.keys(CLASSES).map(function(k){ return '<option value="' + k + '"' + (l.classe === k ? ' selected' : '') + '>' + CLASSES[k] + '</option>'; }).join('');
+      var detail = l.classe === 'sens'
+        ? '<input type="text" data-i="' + i + '" data-k="pin1" value="' + esc(l.pin1) + '" placeholder="Pin 1 sur le plan (ex. coin coupé bas-gauche)">' +
+          '<select data-i="' + i + '" data-k="corps"><option value="">Repère du corps par rapport au pin 1…</option>' +
+          '<option value="meme"' + (l.corps === 'meme' ? ' selected' : '') + '>Même côté que le pin 1</option>' +
+          '<option value="oppose"' + (l.corps === 'oppose' ? ' selected' : '') + '>OPPOSÉ au pin 1</option></select>' : '';
+      return '<tr class="' + cls + (etat(l) ? ' sx-done' : '') + '">' +
+        '<td><span class="sx-rep">' + esc(l.des) + '</span>' + (l.qty ? '<div class="sx-s">×' + esc(l.qty) + '</div>' : '') + '</td>' +
+        '<td><div class="sx-m">' + esc(l.mpn) + '</div><div class="sx-s">' + esc([l.mfr, l.pkg, l.mnt].filter(Boolean).join(' · ')) + '</div>' + (l.desc ? '<div class="sx-s">' + esc(l.desc) + '</div>' : '') + '</td>' +
+        '<td>' + savoir + '</td>' +
+        '<td><div class="sx-dec"><select data-i="' + i + '" data-k="classe">' + opts + '</select>' + detail +
+          '<input type="text" data-i="' + i + '" data-k="note" value="' + esc(l.note) + '" placeholder="Note pour l\'opérateur (facultatif)">' +
+          '<label class="sx-chk"><input type="checkbox" data-i="' + i + '" data-k="ok"' + (l.ok ? ' checked' : '') + '> Vérifié par moi</label></div></td></tr>';
+    }).join('');
+    $('sens-rows').innerHTML = h || '<tr><td colspan="4" class="sx-s">Aucun connecteur trouvé dans cette BOM. Utilise « Ajouter un connecteur oublié » si besoin.</td></tr>';
+    $('sens-tiles').innerHTML =
+      '<div class="sx-tile r"><div class="n">' + piege + '</div><div class="l">Pièges connus</div></div>' +
+      '<div class="sx-tile a"><div class="n">' + nouv + '</div><div class="l">À analyser</div></div>' +
+      '<div class="sx-tile g"><div class="n">' + conn + '</div><div class="l">Séries connues</div></div>' +
+      '<div class="sx-tile"><div class="n">' + fait + ' / ' + LIGNES.length + '</div><div class="l">Lignes vérifiées</div></div>';
+    var reste = LIGNES.length - fait;
+    $('sens-reste').textContent = reste ? reste + ' ligne(s) à finir avant de signer' : (LIGNES.length ? 'Tout est vérifié' : '');
+    $('sens-valider').disabled = reste > 0 || !LIGNES.length;
+  }
+
+  $('sens-rows').addEventListener('change', function(e){
+    var t = e.target, i = t.getAttribute('data-i'), k = t.getAttribute('data-k'); if (i == null) return;
+    var l = LIGNES[+i];
+    if (k === 'ok') l.ok = t.checked; else l[k] = t.value;
+    if (k === 'classe') l.ok = false;            // nouvelle décision = re-vérifier
+    sauver(); dessiner();
+  });
+  $('sens-rows').addEventListener('input', function(e){
+    var t = e.target, i = t.getAttribute('data-i'), k = t.getAttribute('data-k');
+    if (i == null || t.tagName !== 'INPUT' || t.type !== 'text') return;
+    LIGNES[+i][k] = t.value; sauver();
+    var reste = LIGNES.filter(function(l){ return !etat(l); }).length;
+    $('sens-valider').disabled = reste > 0;
+  });
+  $('sens-add').addEventListener('click', function(){
+    var des = prompt('Repère(s) du connecteur oublié (ex. J22) :'); if (!des) return;
+    var mpn = prompt('Référence (MPN) :') || '';
+    LIGNES.push({ des:des.trim(), mpn:mpn.trim(), ipn:'', regle:regle(mpn.trim(), ''), classe:'', corps:'', pin1:'', note:'', ok:false, ajout:true });
+    sauver(); dessiner();
+  });
+  $('sens-qui').addEventListener('change', function(){ try { localStorage.setItem('pp_sens_qui', this.value.trim()); } catch(e){} });
+
+  /* ---------- feuille signée ---------- */
+  $('sens-valider').addEventListener('click', function(){
+    var qui = $('sens-qui').value.trim();
+    if (!qui) { alert('Indique ton nom dans « Validé par » : la feuille est signée.'); $('sens-qui').focus(); return; }
+    var now = new Date(), quand = now.toLocaleDateString('fr-FR') + ' à ' + now.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+    var carte = $('sens-carte').value.trim(), so = $('sens-so').value.trim();
+    var verApp = (document.getElementById('hdr-version') || {}).textContent || '';
+    var aSens = LIGNES.filter(function(l){ return l.classe === 'sens'; }).sort(function(a, b){ return (b.corps === 'oppose') - (a.corps === 'oppose'); }); // pièges (repère opposé) en tête
+    var impose = LIGNES.filter(function(l){ return l.classe === 'impose'; });
+    var sans = LIGNES.filter(function(l){ return l.classe === 'sans'; });
+    var lignesSens = aSens.map(function(l){
+      var p = l.corps === 'oppose';
+      return '<tr class="' + (p ? 'opp' : '') + '"><td class="rep">' + esc(l.des) + '</td><td class="m">' + esc(l.mpn) + '</td>' +
+        '<td>' + esc(l.pin1) + '</td><td>' + (p ? '<b class="alerte">REPÈRE DU CORPS OPPOSÉ AU PIN 1</b>' : 'Repère du corps <b>même côté</b> que le pin 1') + pict(l.corps, 170) + '</td>' +
+        '<td>' + esc(l.note) + '</td><td class="case">☐</td></tr>';
+    }).join('');
+    var lignesImp = impose.map(function(l){ return '<tr><td class="rep">' + esc(l.des) + '</td><td class="m">' + esc(l.mpn) + '</td><td colspan="2">Sens imposé par la forme / l\'empreinte — ne se monte que d\'une façon</td><td>' + esc(l.note) + '</td><td class="case">☐</td></tr>'; }).join('');
+    var titre = 'FeuilleSens_' + (so || 'SO') + '_' + carte.replace(/[^\w.-]+/g, '_');
+    var html = '<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>' + esc(titre) + '</title><style>' +
+      'body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:18px;font-size:12px}h1{font-size:18px;margin:0 0 4px}' +
+      '.hd{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #F07B1F;padding-bottom:8px;margin-bottom:12px}' +
+      '.sig{border:1.5px solid #111;padding:6px 10px;font-size:12px}.sig b{font-size:13px}' +
+      'table{border-collapse:collapse;width:100%;margin:6px 0 14px}th,td{border:1px solid #999;padding:6px 8px;text-align:left;vertical-align:top}' +
+      'th{background:#eee;font-size:10.5px;text-transform:uppercase}.rep{font-family:Consolas,monospace;font-weight:bold;font-size:13px}.m{font-family:Consolas,monospace}' +
+      'tr.opp td{background:#FCEBEB}.alerte{color:#A32D2D;font-size:13px}.case{font-size:20px;text-align:center;width:40px}' +
+      'h2{font-size:14px;margin:14px 0 2px}.s{color:#555;font-size:11px}.pied{margin-top:18px;border-top:1px solid #999;padding-top:8px;display:flex;gap:40px}' +
+      'svg text{fill:#333}@media print{.noprint{display:none}body{margin:8mm}}' +
+      '.noprint{background:#FAEEDA;border:1px solid #854F0B;padding:8px 10px;margin-bottom:12px}</style></head><body>' +
+      '<div class="noprint">Enregistre cette feuille en <b>PDF</b> (Imprimer → « Enregistrer au format PDF ») dans le dossier de la carte, nom proposé : <b>' + esc(titre) + '.pdf</b> <button onclick="window.print()">Imprimer / PDF</button></div>' +
+      '<div class="hd"><div><h1>Feuille Sens — connecteurs</h1><div><b>' + esc(carte) + '</b>' + (so ? ' · ' + esc(so) : '') + '</div>' +
+      '<div class="s">BOM : ' + esc(FICHIER) + ' · MYCenter Prep ' + esc(verApp) + ' · onglet Sens v' + SENS_VER + ' · règles ' + SENS_REGLES_VER + '</div></div>' +
+      '<div class="sig">Validée par <b>' + esc(qui) + '</b><br>le ' + quand + '</div></div>' +
+      '<h2>À sens — vérifier le repère du corps avant de poser (' + aSens.length + ')</h2>' +
+      (aSens.length ? '<table><thead><tr><th>Repères</th><th>Référence</th><th>Pin 1 sur le plan</th><th>Repère du corps</th><th>Note</th><th>1er art.</th></tr></thead><tbody>' + lignesSens + '</tbody></table>' : '<p class="s">Aucun.</p>') +
+      '<h2>Sens imposé (' + impose.length + ')</h2>' +
+      (impose.length ? '<table><thead><tr><th>Repères</th><th>Référence</th><th colspan="2">Pourquoi</th><th>Note</th><th>1er art.</th></tr></thead><tbody>' + lignesImp + '</tbody></table>' : '<p class="s">Aucun.</p>') +
+      '<h2>Sans sens (' + sans.length + ')</h2><p>' + (sans.length ? sans.map(function(l){ return '<span class="m">' + esc(l.des) + '</span> (' + esc(l.mpn) + ')'; }).join(' · ') : '<span class="s">Aucun.</span>') + '</p>' +
+      '<div class="pied"><div>1er article contrôlé par : ____________________</div><div>le : ____ / ____ / ________</div></div>' +
+      '<p class="s">Feuille établie et validée par le pôle méthodes. En cas de doute au poste : on s\'arrête et on demande, on ne devine pas.</p>' +
+      '</body></html>';
+    var w = window.open('', '_blank');
+    if (!w) { alert('Le navigateur a bloqué la fenêtre : autorise les fenêtres pour ce site puis recommence.'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+  });
+})();
+</script>
 
 <div id="planche"></div>
 
@@ -3302,7 +3671,7 @@ window.aoi_runConvert = runConvert;
 <script>
 /* ---- onglets Methodes v4.0 ---- */
 (function(){
-  var APP_VERSION_G = "5.9", APP_DATE_G = "09/10/2026"; // v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
+  var APP_VERSION_G = "5.10", APP_DATE_G = "09/10/2026"; // v5.10 : onglet « Sens » v1.0 — feuille sens des connecteurs (tri depuis la BOM, pièges connus TFML/TFC/TEM, décision + signature méthodes, feuille PDF pour le poste ; chantier 203) — v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
   document.title = "MYCenter Prep \u2014 v" + APP_VERSION_G + " \u2014 " + APP_DATE_G;
   function poser(){
     var h = document.getElementById('hdr-version');
