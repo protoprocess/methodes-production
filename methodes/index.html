@@ -1353,6 +1353,7 @@
 #pane-cmp .cx-blk.cx-err{border-left:3px solid var(--red-badge);border-radius:0 var(--radius-lg) var(--radius-lg) 0}
 #pane-cmp .cx-blk.cx-warn{border-left:3px solid var(--amber-badge);border-radius:0 var(--radius-lg) var(--radius-lg) 0}
 #pane-cmp .cx-blk.cx-ok{border-left:3px solid var(--green-badge);border-radius:0 var(--radius-lg) var(--radius-lg) 0}
+#pane-cmp .cx-blk.cx-nc{border-left:3px solid var(--text3);border-radius:0 var(--radius-lg) var(--radius-lg) 0}
 #pane-cmp .cx-blk.cx-note{border-left:3px solid var(--pp-blue);border-radius:0 var(--radius-lg) var(--radius-lg) 0}
 #pane-cmp .cx-err h2{color:var(--red)} #pane-cmp .cx-warn h2{color:var(--amber)} #pane-cmp .cx-ok h2{color:var(--green)} #pane-cmp .cx-note h2{color:var(--pp-blue)}
 #pane-cmp .cx-drops{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
@@ -1451,6 +1452,12 @@
     <section class="cx-blk cx-warn">
       <h2><i class="ti ti-eye-check"></i>À vérifier — proche, incomplet ou impossible à contrôler seul</h2>
       <div id="cmp-listWarn"></div>
+    </section>
+
+    <section class="cx-blk cx-nc cx-hide" id="cmp-ncBlk">
+      <h2><i class="ti ti-circle-off"></i>Non câblés — NC chez le client et non placés chez nous <span style="font-weight:400;color:var(--text3)" id="cmp-nNc"></span></h2>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Pour info : hors compteurs. Un NC d'un seul côté part en Erreurs.</div>
+      <div class="cx-mono" id="cmp-listNc" style="font-size:13px;line-height:1.7;word-break:break-word"></div>
     </section>
 
     <section class="cx-blk cx-ok">
@@ -3892,7 +3899,7 @@ window.aoi_runConvert = runConvert;
 <script>
 /* ---- onglets Methodes v4.0 ---- */
 (function(){
-  var APP_VERSION_G = "5.10", APP_DATE_G = "09/10/2026"; // v5.10 (Jérôme : tout l'onglet Sens connecteurs du 09/10 reste en v5.10 ; numéros internes 5.11 à 5.13 ci-dessous) — v5.13 : Sens connecteurs v1.3 — plan client PDF : affichage, repérage auto si le plan contient le texte du repère, capture de la zone par connecteur, extrait sur la feuille signée — v5.12 : Sens connecteurs v1.2 — texte « pas de détrompeur » clarifié (c'est la fiche fournisseur qui ne dit rien, pas la datasheet) — v5.11 : Sens connecteurs v1.1 — recherche automatique des fiches DigiKey/Mouser (gratuit, sans IA) pour les connecteurs non connus — v5.10 : onglet « Sens connecteurs » v1.0 — feuille sens des connecteurs (tri depuis la BOM, pièges connus TFML/TFC/TEM, décision + signature méthodes, feuille PDF pour le poste ; chantier 203) — v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
+  var APP_VERSION_G = "5.14", APP_DATE_G = "12/10/2026"; // v5.14 : Comparateur BOM v1.2 — NC client + non placé chez nous = bloc « Non câblés » (hors compteurs) ; NC d'un seul côté = Erreur (cas SICPA SO2609-492, C45) — v5.10 (Jérôme : tout l'onglet Sens connecteurs du 09/10 reste en v5.10 ; numéros internes 5.11 à 5.13 ci-dessous) — v5.13 : Sens connecteurs v1.3 — plan client PDF : affichage, repérage auto si le plan contient le texte du repère, capture de la zone par connecteur, extrait sur la feuille signée — v5.12 : Sens connecteurs v1.2 — texte « pas de détrompeur » clarifié (c'est la fiche fournisseur qui ne dit rien, pas la datasheet) — v5.11 : Sens connecteurs v1.1 — recherche automatique des fiches DigiKey/Mouser (gratuit, sans IA) pour les connecteurs non connus — v5.10 : onglet « Sens connecteurs » v1.0 — feuille sens des connecteurs (tri depuis la BOM, pièges connus TFML/TFC/TEM, décision + signature méthodes, feuille PDF pour le poste ; chantier 203) — v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
   document.title = "MYCenter Prep \u2014 v" + APP_VERSION_G + " \u2014 " + APP_DATE_G;
   function poser(){
     var h = document.getElementById('hdr-version');
@@ -4303,6 +4310,18 @@ const CMP_CORE = (() => {
     return { ok, warn, refs: refs.filter(x => !x.isValue || x.isMpn) };
   }
 
+  // ---------- NC / non câblé (v1.2, 12/10/2026 — cas SICPA xdk-xc7a-board SO2609-492, C45) ----------
+  // Client : colonne DNP renseignée, ou « NC », « DNP », « DNF », « NM », « non câblé »… écrit en mot isolé
+  // dans la valeur, le MPN, le boîtier, la description ou une colonne de référence (ex. « C0402, NC »).
+  const NC_WORD = /(^|[\s,;/()\[\]_-])(NC|N\.C\.?|DNP|DNF|DNI|NM|NF|NP|NOPOP)(?=$|[\s,;/()\[\]_-])/;
+  const NC_PHRASE = /do\s*not\s*(populate|place|fit|mount)|not\s*(fitted|mounted|placed|populated)|no\s*pop|non\s*(cabl|mont|plac)/i;
+  function clientNC(c) {
+    if (c.dnp && !/^(0|non|no|false)$/i.test(c.dnp)) return true;
+    return [c.value, c.mpn, c.fp, c.desc, ...(c.cands || []).map(x => x.val)].some(v => v && (NC_WORD.test(String(v)) || NC_PHRASE.test(String(v))));
+  }
+  // Chez nous : repère absent de l'export (Luminovo n'exporte pas les « Do not place »), ou ligne sans pièce
+  function lumiNC(l) { return !l || (!l.mpn && !l.ipn) || NC_PHRASE.test(l.mount || ''); }
+
   // ---------- Comparaison globale ----------
   function compare(clientRows, lumiRows, notes) {
     const pn = parseNotes(notes);
@@ -4310,7 +4329,7 @@ const CMP_CORE = (() => {
     lumiRows.forEach(l => l.refs.forEach(r => lumiByRef.set(r, l)));
     const seen = new Set(), results = [];
     clientRows.forEach(c => {
-      const dnp = c.dnp && !/^(0|non|no|false)$/i.test(c.dnp);
+      const dnp = clientNC(c);
       // répartir les repères du client selon la ligne Luminovo où ils tombent
       const groups = new Map();
       c.refs.forEach(r => { seen.add(r); const l = lumiByRef.get(r) || null; const k = l ? l.idx : -1;
@@ -4319,7 +4338,9 @@ const CMP_CORE = (() => {
         let cm = null;
         const out = { client: c, lumi: l, refs, err: [], warn: [], ok: [], notes: [], how: null };
         const kind = refKind(refs[0]);
-        if (dnp) { out.warn.push('Marqué non câblé (DNP) chez le client'); if (l) out.warn.push('… mais présent chez nous'); }
+        if (dnp && lumiNC(l)) { out.nc = true; out.ok.push('Non câblé des deux côtés (NC chez le client, ' + (l ? 'sans pièce' : 'non placé') + ' chez nous)'); }
+        else if (dnp) out.err.push('Non câblé chez le client (NC) mais pièce prévue chez nous : ' + (l.mpn || l.ipn) + ' — on achète / câble un composant à ne pas monter');
+        else if (lumiNC(l) && (c.mpn || parseVal(c.value, kind) != null)) out.err.push('Composant demandé par le client (' + (c.mpn || c.value) + ') mais ' + (l ? 'sans pièce' : 'non placé (absent de l\'export Luminovo)') + ' chez nous');
         else if (!l) out.warn.push('Repère absent de Luminovo' + (parseVal(c.value, kind) == null && !c.mpn ? ' — valeur non définie dans la BOM client' : ''));
         else if ((cm = matchCands(c, l)).ok) {
           out.ok.push(cm.ok.msg + (cm.ok.cand.isMpn ? '' : ' — trouvé dans la colonne « ' + cm.ok.cand.col + ' » : ' + cm.ok.cand.val));
@@ -4341,7 +4362,7 @@ const CMP_CORE = (() => {
           if (c.indicMpn) out.notes.push('Référence client « ' + c.indicMpn + ' » incomplète, donnée à titre indicatif — contrôle fait sur les caractéristiques');
         } else out.warn.push('Pas de MPN dans la BOM client : contrôle à l\'œil');
         if (!dnp) applyNotes(out, kind, pn);
-        out.verdict = out.err.length ? 'err' : out.warn.length ? 'warn' : 'ok';
+        out.verdict = out.nc ? 'nc' : out.err.length ? 'err' : out.warn.length ? 'warn' : 'ok';
         results.push(out);
       });
     });
@@ -4353,7 +4374,7 @@ const CMP_CORE = (() => {
     return results;
   }
 
-  return { readClient, readLumi, compare, splitRefs, parseVal, compareMpn, parsePkgFootprint };
+  return { readClient, readLumi, compare, splitRefs, parseVal, compareMpn, parsePkgFootprint, clientNC, lumiNC };
 })();
 
 
@@ -4480,6 +4501,10 @@ function lineHtml(r) {
 const nb = n => n + (n > 1 ? ' lignes' : ' ligne');
 function render(res) {
   const E = res.filter(r => r.verdict === 'err'), W = res.filter(r => r.verdict === 'warn'), O = res.filter(r => r.verdict === 'ok');
+  const N = res.filter(r => r.verdict === 'nc'), ncRefs = N.flatMap(r => r.refs);
+  $('nNc').textContent = '(' + ncRefs.length + ' repère' + (ncRefs.length > 1 ? 's' : '') + ')';
+  $('listNc').textContent = ncRefs.join(', ');
+  hide('ncBlk', !ncRefs.length);
   $('nErr').textContent = nb(E.length); $('nWarn').textContent = nb(W.length); $('nOk').textContent = nb(O.length);
   $('listErr').innerHTML = E.length ? E.map(lineHtml).join('') : '<div class="cx-empty">Aucune erreur trouvée.</div>';
   $('listWarn').innerHTML = W.length ? W.map(lineHtml).join('') : '<div class="cx-empty">Rien à vérifier.</div>';
