@@ -3360,6 +3360,26 @@ async function supAllocate() {
     const data = await resp.json();
     const arr = Array.isArray(data) ? data : [data];
     if (!arr.length || !arr[0].carrierid) throw new Error('Réponse inattendue du webhook');
+    // v5.15 — garde-fou : la base renvoie l'attribution DÉJÀ faite pour ce SO. Si elle a été faite pour une
+    // autre BOM (autre carte du même SO, BOM modifiée), les IPN ne correspondent pas → on bloque.
+    // Cas SO2609-518 (13/10/2026) et SO2609-474 B3/M1 (06/10/2026). Même nettoyage que le nœud n8n « Sanitize payload ».
+    const clean = x => String(x || '').replace(/[^A-Za-z0-9._+/#,()& -]/g, '').trim().slice(0, 80);
+    const envoyes = new Set(supState.lignes.map(l => clean(l.ipn))), recus = new Set(arr.map(a => clean(a.ipn)));
+    const sansSupport = [...envoyes].filter(x => !recus.has(x)), enTrop = [...recus].filter(x => !envoyes.has(x));
+    if (sansSupport.length || enTrop.length) {
+      btn.disabled = false;
+      const first = arr[0].carrierid, last = arr[arr.length - 1].carrierid;
+      const hint = document.getElementById('sup-hint');
+      hint.style.color = 'var(--red)';
+      hint.textContent = '⛔ ' + so + ' déjà attribué à une autre BOM — ajoute le nom de la carte dans la case SO';
+      supLog('Étape 6 : attribution bloquée — ' + so + ' a déjà ' + arr.length + ' supports (R' + first + ' → R' + last + ') pour une autre liste d\'IPN', 'warn');
+      alert('⛔ Attribution bloquée — rien à imprimer.\n\n' + so + ' a déjà ' + arr.length + ' supports (R' + first + ' → R' + last + ') attribués à une AUTRE BOM.\n' +
+        (sansSupport.length ? '\nIPN de ton fichier sans support (' + sansSupport.length + ') : ' + sansSupport.slice(0, 6).join(', ') + (sansSupport.length > 6 ? '…' : '') : '') +
+        (enTrop.length ? '\nIPN de l\'autre BOM (' + enTrop.length + ') : ' + enTrop.slice(0, 6).join(', ') + (enTrop.length > 6 ? '…' : '') : '') +
+        '\n\n→ Ajoute le nom de la carte dans la case SO (ex. ' + so + '-MDU1), puis clique à nouveau sur Attribuer.\nAucun numéro n\'a été consommé.');
+      return;
+    }
+    document.getElementById('sup-hint').style.color = '';
     supState.alloues = arr;
     supRenderTable(arr);
     document.getElementById('sup-actions').style.display = '';
@@ -3899,7 +3919,7 @@ window.aoi_runConvert = runConvert;
 <script>
 /* ---- onglets Methodes v4.0 ---- */
 (function(){
-  var APP_VERSION_G = "5.14", APP_DATE_G = "12/10/2026"; // v5.14 : Comparateur BOM v1.2 — NC client + non placé chez nous = bloc « Non câblés » (hors compteurs) ; NC d'un seul côté = Erreur (cas SICPA SO2609-492, C45) — v5.10 (Jérôme : tout l'onglet Sens connecteurs du 09/10 reste en v5.10 ; numéros internes 5.11 à 5.13 ci-dessous) — v5.13 : Sens connecteurs v1.3 — plan client PDF : affichage, repérage auto si le plan contient le texte du repère, capture de la zone par connecteur, extrait sur la feuille signée — v5.12 : Sens connecteurs v1.2 — texte « pas de détrompeur » clarifié (c'est la fiche fournisseur qui ne dit rien, pas la datasheet) — v5.11 : Sens connecteurs v1.1 — recherche automatique des fiches DigiKey/Mouser (gratuit, sans IA) pour les connecteurs non connus — v5.10 : onglet « Sens connecteurs » v1.0 — feuille sens des connecteurs (tri depuis la BOM, pièges connus TFML/TFC/TEM, décision + signature méthodes, feuille PDF pour le poste ; chantier 203) — v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
+  var APP_VERSION_G = "5.15", APP_DATE_G = "13/10/2026"; // v5.15 : étape 6 — attribution bloquée avec message clair si le SO a déjà des supports pour une autre BOM (IPN différents) ; plus d'étiquettes qui ne correspondent pas à la BOM (cas SO2609-518) — v5.14 : Comparateur BOM v1.2 — NC client + non placé chez nous = bloc « Non câblés » (hors compteurs) ; NC d'un seul côté = Erreur (cas SICPA SO2609-492, C45) — v5.10 (Jérôme : tout l'onglet Sens connecteurs du 09/10 reste en v5.10 ; numéros internes 5.11 à 5.13 ci-dessous) — v5.13 : Sens connecteurs v1.3 — plan client PDF : affichage, repérage auto si le plan contient le texte du repère, capture de la zone par connecteur, extrait sur la feuille signée — v5.12 : Sens connecteurs v1.2 — texte « pas de détrompeur » clarifié (c'est la fiche fournisseur qui ne dit rien, pas la datasheet) — v5.11 : Sens connecteurs v1.1 — recherche automatique des fiches DigiKey/Mouser (gratuit, sans IA) pour les connecteurs non connus — v5.10 : onglet « Sens connecteurs » v1.0 — feuille sens des connecteurs (tri depuis la BOM, pièges connus TFML/TFC/TEM, décision + signature méthodes, feuille PDF pour le poste ; chantier 203) — v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
   document.title = "MYCenter Prep \u2014 v" + APP_VERSION_G + " \u2014 " + APP_DATE_G;
   function poser(){
     var h = document.getElementById('hdr-version');
