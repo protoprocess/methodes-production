@@ -3919,7 +3919,7 @@ window.aoi_runConvert = runConvert;
 <script>
 /* ---- onglets Methodes v4.0 ---- */
 (function(){
-  var APP_VERSION_G = "5.15", APP_DATE_G = "13/10/2026"; // v5.15 : étape 6 — attribution bloquée avec message clair si le SO a déjà des supports pour une autre BOM (IPN différents) ; plus d'étiquettes qui ne correspondent pas à la BOM (cas SO2609-518) — v5.14 : Comparateur BOM v1.2 — NC client + non placé chez nous = bloc « Non câblés » (hors compteurs) ; NC d'un seul côté = Erreur (cas SICPA SO2609-492, C45) — v5.10 (Jérôme : tout l'onglet Sens connecteurs du 09/10 reste en v5.10 ; numéros internes 5.11 à 5.13 ci-dessous) — v5.13 : Sens connecteurs v1.3 — plan client PDF : affichage, repérage auto si le plan contient le texte du repère, capture de la zone par connecteur, extrait sur la feuille signée — v5.12 : Sens connecteurs v1.2 — texte « pas de détrompeur » clarifié (c'est la fiche fournisseur qui ne dit rien, pas la datasheet) — v5.11 : Sens connecteurs v1.1 — recherche automatique des fiches DigiKey/Mouser (gratuit, sans IA) pour les connecteurs non connus — v5.10 : onglet « Sens connecteurs » v1.0 — feuille sens des connecteurs (tri depuis la BOM, pièges connus TFML/TFC/TEM, décision + signature méthodes, feuille PDF pour le poste ; chantier 203) — v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
+  var APP_VERSION_G = "5.16", APP_DATE_G = "16/10/2026"; // v5.16 : Comparateur BOM v1.3 — BOM AMG Microwave lue : colonne « Homologation fabricants » = MPN, format « FABRICANT (MPN1, MPN2) » découpé, noms internes client écartés (contrôle sur caractéristiques), valeurs R « 47R / 49R9 / 1K5 » lues dans la désignation, fourniture client Luminovo (Supplier « client ») reconnue (cas CAR0493 B) — v5.15 : étape 6 — attribution bloquée avec message clair si le SO a déjà des supports pour une autre BOM (IPN différents) ; plus d'étiquettes qui ne correspondent pas à la BOM (cas SO2609-518) — v5.14 : Comparateur BOM v1.2 — NC client + non placé chez nous = bloc « Non câblés » (hors compteurs) ; NC d'un seul côté = Erreur (cas SICPA SO2609-492, C45) — v5.10 (Jérôme : tout l'onglet Sens connecteurs du 09/10 reste en v5.10 ; numéros internes 5.11 à 5.13 ci-dessous) — v5.13 : Sens connecteurs v1.3 — plan client PDF : affichage, repérage auto si le plan contient le texte du repère, capture de la zone par connecteur, extrait sur la feuille signée — v5.12 : Sens connecteurs v1.2 — texte « pas de détrompeur » clarifié (c'est la fiche fournisseur qui ne dit rien, pas la datasheet) — v5.11 : Sens connecteurs v1.1 — recherche automatique des fiches DigiKey/Mouser (gratuit, sans IA) pour les connecteurs non connus — v5.10 : onglet « Sens connecteurs » v1.0 — feuille sens des connecteurs (tri depuis la BOM, pièges connus TFML/TFC/TEM, décision + signature méthodes, feuille PDF pour le poste ; chantier 203) — v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
   document.title = "MYCenter Prep \u2014 v" + APP_VERSION_G + " \u2014 " + APP_DATE_G;
   function poser(){
     var h = document.getElementById('hdr-version');
@@ -4032,6 +4032,8 @@ const CMP_CORE = (() => {
     if (kind === 'C' && (m = d.match(/(\d+(?:\.\d+)?)\s*(p|n|u|µ|μ)F\b/i))) r.value = parseFloat(m[1]) * MULT[m[2].toLowerCase().replace(/µ|μ/, 'u')];
     if (kind === 'L' && (m = d.match(/(\d+(?:\.\d+)?)\s*(n|u|µ|μ|m)H\b/i))) r.value = parseFloat(m[1]) * MULT[m[2].toLowerCase().replace(/µ|μ/, 'u')];
     if (kind === 'R' && (m = d.match(/(\d+(?:\.\d+)?)\s*([kKmMgG])?\s*Ohm/i))) r.value = parseFloat(m[1]) * (m[2] ? { k: 1e3, m: 1e6, g: 1e9 }[m[2].toLowerCase()] : 1);
+    // v1.3 : notation « 47R », « 49R9 », « 1K5 », « 0R », « 1M » (BOM AMG « RES 0402 47R 1% 0.063W »)
+    if (kind === 'R' && r.value == null && (m = d.match(/(?:^|\s)(\d+[RKM]\d*)(?=\s|$)/i))) r.value = parseVal(m[1], 'R');
     if (kind === 'C' && (m = d.match(/(\d+(?:\.\d+)?)\s*(k?)V\b/i))) r.volt = parseFloat(m[1]) * (m[2] ? 1000 : 1);
     if (kind === 'C') r.diel = parseDiel(d);
     if ((m = d.match(/(\d+(?:\.\d+)?)\s*%/))) r.tol = parseFloat(m[1]);
@@ -4068,7 +4070,7 @@ const CMP_CORE = (() => {
     qty: ['qty', 'quantity', 'quantite', 'qte', 'qt'],
     value: ['value', 'valeur', 'val'],
     fp: ['footprint', 'package', 'boitier', 'case', 'empreinte'],
-    mpn: ['mpn', 'manufacturer part number', 'mfr part number', 'mfg part number', 'manufacturer pn', 'mfr pn', 'part number', 'ref fabricant', 'reference fabricant', 'manufacturer reference'],
+    mpn: ['mpn', 'manufacturer part number', 'mfr part number', 'mfg part number', 'manufacturer pn', 'mfr pn', 'part number', 'ref fabricant', 'reference fabricant', 'manufacturer reference', 'homologation fabricants', 'homologation fabricant', 'homologation'],
     manuf: ['manufacturer', 'fabricant', 'mfr', 'mfg', 'brand', 'marque'],
     tol: ['precision', 'tolerance', 'tol'],
     ppm: ['temperature', 'tempco', 'ppm', 'tcr'],
@@ -4136,12 +4138,28 @@ const CMP_CORE = (() => {
         manuf: g('manuf'), tol: g('tol'), ppm: g('ppm'), volt: g('volt'), diel: g('diel'), desc: g('desc'), dnp: g('dnp'),
         cands: candCols.map(x => ({ col: x.h, val: norm(r[x.i]), isMpn: x.i === map.mpn, isValue: x.i === map.value && !map.valueFromComment })).filter(x => x.val && x.val !== '*') });
       const row = rows[rows.length - 1], k0 = refKind(row.refs[0]);
+      if (row.mpn && /\([^)]*\)/.test(row.mpn)) splitHomologation(row, head[map.mpn]);
       if ((k0 === 'R' || k0 === 'C' || k0 === 'L') && isIndicRef(row.mpn)) {
         row.indicMpn = row.mpn; row.mpn = '';
         row.cands = row.cands.filter(x => !isIndicRef(x.val));
       }
     });
     return { rows, cols: map, notes };
+  }
+  // v1.3 (16/10/2026, BOM AMG Microwave CAR0493) : colonne « Homologation fabricants » écrite
+  // « AMG MICROWAVE (RES 0402 22R 1% 0.063W), YAGEO (RC0402FR-0722RL) » → chaque MPN entre parenthèses
+  // devient une référence acceptée ; les noms internes du client (« RES 0402 22R 1% … ») sont écartés
+  const PSEUDO_RE = /^(RES|CAP|IND|DIV|IC|RF|CON|QTZ|DIO|TRA|FIL)\s|%|\s_\s/i;
+  function splitHomologation(row, colName) {
+    const raw = row.mpn, refs = [];
+    raw.replace(/([^(),]*)\(([^)]*)\)/g, (all, maker, inner) => { inner.split(',').forEach(x => { x = norm(x); if (x) refs.push({ maker: norm(maker), val: x }); }); return all; });
+    const descKey = mpnKey(row.desc);
+    const real = refs.filter(x => !PSEUDO_RE.test(x.val) && mpnKey(x.val) !== descKey && mpnKey(x.val).length >= 5 && /\d/.test(x.val));
+    row.cands = row.cands.filter(x => !x.isMpn);
+    real.forEach(x => row.cands.push({ col: colName || 'Homologation', val: x.val, isMpn: true, isValue: false }));
+    row.mpnList = real.map(x => x.val);
+    row.mpn = real.length ? real[0].val : '';
+    if (!real.length) { row.indicMpn = refs.map(x => x.val).join(', ') || raw; row.mpnInterne = true; }
   }
   // « Nexperia; BZX585-C15 » par ligne → on garde la dernière valeur de chaque ligne (le MPN)
   function apprList(s) {
@@ -4157,11 +4175,12 @@ const CMP_CORE = (() => {
     if (c.qty < 0) c.qty = ix('aggregated qty');
     if (c.ipn < 0) c.ipn = has('internal part number');   // « Internal part number (IPN) from BOM »
     if (c.ipn < 0) c.ipn = has('ipn');
-    c.note = ix('notes'); c.appr = ix('approved parts'); c.mount = ix('mounting');
+    c.note = ix('notes'); c.appr = ix('approved parts'); c.mount = ix('mounting'); c.sup = ix('supplier');
     if (c.ref < 0 || c.mpn < 0) throw new Error('Export Luminovo : colonnes « Designator » et « MPN » introuvables dans cet onglet.');
     const out = aoa.slice(1).map((r, i) => ({ idx: i, refs: splitRefs(r[c.ref]), qty: norm(r[c.qty]),
       ipn: c.ipn >= 0 ? norm(r[c.ipn]) : '', pkg: c.pkg >= 0 ? norm(r[c.pkg]) : '', mpn: norm(r[c.mpn]), desc: c.desc >= 0 ? norm(r[c.desc]) : '',
-      note: c.note >= 0 ? norm(r[c.note]) : '', appr: c.appr >= 0 ? norm(r[c.appr]) : '', mount: c.mount >= 0 ? norm(r[c.mount]) : '' }))
+      note: c.note >= 0 ? norm(r[c.note]) : '', appr: c.appr >= 0 ? norm(r[c.appr]) : '', mount: c.mount >= 0 ? norm(r[c.mount]) : '',
+      fourniClient: c.sup >= 0 && /^client$/i.test(norm(r[c.sup])) }))
       .filter(r => r.refs.length);
     out.reduced = c.desc < 0;   // export « scénario de sourcing » : pas de description de notre pièce
     return out;
@@ -4358,7 +4377,8 @@ const CMP_CORE = (() => {
         let cm = null;
         const out = { client: c, lumi: l, refs, err: [], warn: [], ok: [], notes: [], how: null };
         const kind = refKind(refs[0]);
-        if (dnp && lumiNC(l)) { out.nc = true; out.ok.push('Non câblé des deux côtés (NC chez le client, ' + (l ? 'sans pièce' : 'non placé') + ' chez nous)'); }
+        if (!dnp && l && l.fourniClient && !l.mpn) { out.ok.push('Fourniture client (Supplier « client » dans Luminovo) : rien à acheter chez nous'); out.how = 'client'; }
+        else if (dnp && lumiNC(l)) { out.nc = true; out.ok.push('Non câblé des deux côtés (NC chez le client, ' + (l ? 'sans pièce' : 'non placé') + ' chez nous)'); }
         else if (dnp) out.err.push('Non câblé chez le client (NC) mais pièce prévue chez nous : ' + (l.mpn || l.ipn) + ' — on achète / câble un composant à ne pas monter');
         else if (lumiNC(l) && (c.mpn || parseVal(c.value, kind) != null)) out.err.push('Composant demandé par le client (' + (c.mpn || c.value) + ') mais ' + (l ? 'sans pièce' : 'non placé (absent de l\'export Luminovo)') + ' chez nous');
         else if (!l) out.warn.push('Repère absent de Luminovo' + (parseVal(c.value, kind) == null && !c.mpn ? ' — valeur non définie dans la BOM client' : ''));
@@ -4367,9 +4387,10 @@ const CMP_CORE = (() => {
           out.how = cm.ok.how;
         } else if (c.mpn || (cm.refs.length && !(kind === 'R' || kind === 'C' || kind === 'L'))) {
           const asked = c.mpn || (cm.refs[0] && cm.refs[0].val) || '';
-          const hit = apprList(l.appr).map(a => ({ a, m: compareMpn(asked, a) })).find(x => x.m.level === 'ok');
+          const askedAll = (c.mpnList && c.mpnList.length ? c.mpnList : [asked]);
+          const hit = apprList(l.appr).flatMap(a => askedAll.map(q => ({ a, q, m: compareMpn(q, a) }))).find(x => x.m.level === 'ok');
           if (hit) {
-            out.ok.push('Équivalent approuvé dans Luminovo : le client demande ' + asked + ', référence présente dans nos pièces approuvées ; acheté ' + (l.mpn || '?'));
+            out.ok.push('Équivalent approuvé dans Luminovo : le client demande ' + hit.q + ', référence présente dans nos pièces approuvées ; acheté ' + (l.mpn || '?'));
             out.how = 'approved';
             if (l.note) out.notes.push('Note Luminovo : ' + l.note);
           } else if (cm.warn) out.warn.push(cm.warn.msg + (cm.warn.cand.isMpn ? '' : ' (colonne « ' + cm.warn.cand.col + ' » : ' + cm.warn.cand.val + ')'));
@@ -4379,7 +4400,9 @@ const CMP_CORE = (() => {
           const s = checkSpecs(c, l, kind);
           out.err.push(...s.err); out.warn.push(...s.warn); out.notes.push(...s.notes);
           if (s.ok.length) out.ok.push('Vérifié : ' + s.ok.join(', ')); out.how = 'specs';
-          if (c.indicMpn) out.notes.push('Référence client « ' + c.indicMpn + ' » incomplète, donnée à titre indicatif — contrôle fait sur les caractéristiques');
+          if (c.indicMpn) out.notes.push(c.mpnInterne
+            ? 'Pas de MPN fabricant chez le client (référence interne « ' + c.indicMpn + ' ») — contrôle fait sur les caractéristiques'
+            : 'Référence client « ' + c.indicMpn + ' » incomplète, donnée à titre indicatif — contrôle fait sur les caractéristiques');
         } else out.warn.push('Pas de MPN dans la BOM client : contrôle à l\'œil');
         if (!dnp) applyNotes(out, kind, pn);
         out.verdict = out.nc ? 'nc' : out.err.length ? 'err' : out.warn.length ? 'warn' : 'ok';
