@@ -3919,7 +3919,7 @@ window.aoi_runConvert = runConvert;
 <script>
 /* ---- onglets Methodes v4.0 ---- */
 (function(){
-  var APP_VERSION_G = "5.16", APP_DATE_G = "16/10/2026"; // v5.16 : Comparateur BOM v1.3 — BOM AMG Microwave lue : colonne « Homologation fabricants » = MPN, format « FABRICANT (MPN1, MPN2) » découpé, noms internes client écartés (contrôle sur caractéristiques), valeurs R « 47R / 49R9 / 1K5 » lues dans la désignation, fourniture client Luminovo (Supplier « client ») reconnue (cas CAR0493 B) — v5.15 : étape 6 — attribution bloquée avec message clair si le SO a déjà des supports pour une autre BOM (IPN différents) ; plus d'étiquettes qui ne correspondent pas à la BOM (cas SO2609-518) — v5.14 : Comparateur BOM v1.2 — NC client + non placé chez nous = bloc « Non câblés » (hors compteurs) ; NC d'un seul côté = Erreur (cas SICPA SO2609-492, C45) — v5.10 (Jérôme : tout l'onglet Sens connecteurs du 09/10 reste en v5.10 ; numéros internes 5.11 à 5.13 ci-dessous) — v5.13 : Sens connecteurs v1.3 — plan client PDF : affichage, repérage auto si le plan contient le texte du repère, capture de la zone par connecteur, extrait sur la feuille signée — v5.12 : Sens connecteurs v1.2 — texte « pas de détrompeur » clarifié (c'est la fiche fournisseur qui ne dit rien, pas la datasheet) — v5.11 : Sens connecteurs v1.1 — recherche automatique des fiches DigiKey/Mouser (gratuit, sans IA) pour les connecteurs non connus — v5.10 : onglet « Sens connecteurs » v1.0 — feuille sens des connecteurs (tri depuis la BOM, pièges connus TFML/TFC/TEM, décision + signature méthodes, feuille PDF pour le poste ; chantier 203) — v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
+  var APP_VERSION_G = "5.17", APP_DATE_G = "26/10/2026"; // v5.17 : Comparateur BOM v1.4 — BOM PFEIFFER lue (profil dédié, dossier P0711N1 A4) : en-têtes trompeurs remis dans l'ordre (« Part Number » = le repère, « Designation » = le MPN, « Active reference » = les caractéristiques, « Supplier » = le fabricant), « ACCORDING TO CHARACTERISTICS / SP4337 » = case vide (contrôle sur caractéristiques pour toutes les R et C), « Active reference 2/3 » = équivalents acceptés par le client, « Part Reference » (réf. interne client) affichée pour info et jamais source de décision, remarques de la colonne « Comments » remontées et contrôlées ligne par ligne — v5.16 : Comparateur BOM v1.3 — BOM AMG Microwave lue : colonne « Homologation fabricants » = MPN, format « FABRICANT (MPN1, MPN2) » découpé, noms internes client écartés (contrôle sur caractéristiques), valeurs R « 47R / 49R9 / 1K5 » lues dans la désignation, fourniture client Luminovo (Supplier « client ») reconnue (cas CAR0493 B) — v5.15 : étape 6 — attribution bloquée avec message clair si le SO a déjà des supports pour une autre BOM (IPN différents) ; plus d'étiquettes qui ne correspondent pas à la BOM (cas SO2609-518) — v5.14 : Comparateur BOM v1.2 — NC client + non placé chez nous = bloc « Non câblés » (hors compteurs) ; NC d'un seul côté = Erreur (cas SICPA SO2609-492, C45) — v5.10 (Jérôme : tout l'onglet Sens connecteurs du 09/10 reste en v5.10 ; numéros internes 5.11 à 5.13 ci-dessous) — v5.13 : Sens connecteurs v1.3 — plan client PDF : affichage, repérage auto si le plan contient le texte du repère, capture de la zone par connecteur, extrait sur la feuille signée — v5.12 : Sens connecteurs v1.2 — texte « pas de détrompeur » clarifié (c'est la fiche fournisseur qui ne dit rien, pas la datasheet) — v5.11 : Sens connecteurs v1.1 — recherche automatique des fiches DigiKey/Mouser (gratuit, sans IA) pour les connecteurs non connus — v5.10 : onglet « Sens connecteurs » v1.0 — feuille sens des connecteurs (tri depuis la BOM, pièges connus TFML/TFC/TEM, décision + signature méthodes, feuille PDF pour le poste ; chantier 203) — v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
   document.title = "MYCenter Prep \u2014 v" + APP_VERSION_G + " \u2014 " + APP_DATE_G;
   function poser(){
     var h = document.getElementById('hdr-version');
@@ -4107,7 +4107,62 @@ const CMP_CORE = (() => {
     }
     return bestScore >= 0.6 ? best : -1;
   }
+  // ---------- Profil PFEIFFER (v1.4, 26/10/2026 — dossier P0711N1 A4) ----------
+  // En-têtes trompeurs : la détection générique est impossible sur ce format.
+  //   « Part Reference »   = référence INTERNE du client (Y14931) — affichée, JAMAIS une source
+  //                          de décision (une même réf client a déjà pointé un autre MPN, 16/10/2026)
+  //   « Part Number »      = LE repère (C1, R4, D13…)
+  //   « Designation »      = le MPN
+  //   « Active reference » = les caractéristiques (« X7R 100nF 10% 0603 50V »)
+  //   « Supplier »         = le fabricant
+  //   « Active reference 2 / 3 » = équivalents acceptés par le client
+  // « ACCORDING TO CHARACTERISTICS » et « ACCORDING TO SP4337 » valent case vide : sur toutes les
+  // R et C le verdict se fait sur les caractéristiques seules.
+  const PF_VOID = /^according\s+to\s+(characteristics|sp\s*\d+)/i;
+  const pfVal = v => { const s = norm(v); return PF_VOID.test(s) ? '' : s; };
+  function pfeifferHeader(aoa) {
+    for (let i = 0; i < Math.min(aoa.length, 20); i++) {
+      const h = (aoa[i] || []).map(low);
+      const a = h.indexOf('part reference');
+      if (a < 0 || h[a + 1] !== 'part number') continue;
+      if (!h.includes('designation') || !h.some(x => /^active reference/.test(x))) continue;
+      const head = (aoa[i] || []).map(norm);
+      const col = n => h.findIndex(x => x === n);
+      const map = { clientRef: a, ref: a + 1, qty: col('quantity'), mpn: col('designation'),
+        desc: col('active reference'), manuf: col('supplier'),
+        comment: h.findIndex(x => /^comments?$/.test(x)), alts: [] };
+      if (map.mpn < 0 || map.desc < 0) continue;
+      h.forEach((x, c) => { if (c !== map.desc && /^active reference/.test(x)) map.alts.push({ col: head[c], i: c }); });
+      return { hi: i, map, head };
+    }
+    return null;
+  }
+  function readClientPfeiffer(aoa, { hi, map, head }) {
+    const g = (r, k) => map[k] >= 0 ? norm(r[map[k]]) : '';
+    const rows = [], notes = [];
+    aoa.slice(0, hi).forEach(r => { const t = (r || []).map(norm).filter(Boolean).join(' — '); if (t) notes.push(t); });
+    aoa.slice(hi + 1).forEach((r, i) => {
+      r = r || [];
+      const refs = splitRefs(g(r, 'ref'));
+      if (!refs.length || /^PCB/i.test(refs[0])) return;           // le circuit nu n'est pas un composant
+      if (!refs.some(x => /^[A-Z]{1,4}\d{1,4}$/.test(x))) return;  // ligne de pied / texte libre
+      const mpn = pfVal(r[map.mpn]), cliRef = g(r, 'clientRef');
+      const row = { idx: rows.length, line: hi + 2 + i, refs, qty: g(r, 'qty'), value: '', fp: '',
+        mpn, manuf: pfVal(r[map.manuf]), tol: '', ppm: '', volt: '', diel: '',
+        desc: g(r, 'desc'), dnp: '', comment: g(r, 'comment'), clientRef: cliRef, cands: [] };
+      if (mpn) row.cands.push({ col: head[map.mpn] || 'Designation', val: mpn, isMpn: true, isValue: false });
+      // équivalents acceptés par le client : isMpn = false pour que le verdict nomme la colonne
+      map.alts.forEach(a => { const v = pfVal(r[a.i]); if (v) row.cands.push({ col: a.col, val: v, isMpn: false, isValue: false }); });
+      if (!mpn && cliRef) { row.indicMpn = cliRef; row.mpnInterne = true; }
+      rows.push(row);
+    });
+    if (!rows.length) throw new Error('BOM client PFEIFFER : en-tête reconnu, mais aucune ligne de composant lue.');
+    return { rows, cols: map, notes, profil: 'PFEIFFER' };
+  }
+
   function readClient(aoa) {
+    const pf = pfeifferHeader(aoa);
+    if (pf) return readClientPfeiffer(aoa, pf);
     let hi = -1, map = null;
     for (let i = 0; i < Math.min(aoa.length, 60); i++) {
       const m = mapHeader(aoa[i] || []);
@@ -4356,7 +4411,7 @@ const CMP_CORE = (() => {
   const NC_PHRASE = /do\s*not\s*(populate|place|fit|mount)|not\s*(fitted|mounted|placed|populated)|no\s*pop|non\s*(cabl|mont|plac)/i;
   function clientNC(c) {
     if (c.dnp && !/^(0|non|no|false)$/i.test(c.dnp)) return true;
-    return [c.value, c.mpn, c.fp, c.desc, ...(c.cands || []).map(x => x.val)].some(v => v && (NC_WORD.test(String(v)) || NC_PHRASE.test(String(v))));
+    return [c.value, c.mpn, c.fp, c.desc, c.comment, ...(c.cands || []).map(x => x.val)].some(v => v && (NC_WORD.test(String(v)) || NC_PHRASE.test(String(v))));
   }
   // Chez nous : repère absent de l'export (Luminovo n'exporte pas les « Do not place »), ou ligne sans pièce
   function lumiNC(l) { return !l || (!l.mpn && !l.ipn) || NC_PHRASE.test(l.mount || ''); }
@@ -4405,6 +4460,12 @@ const CMP_CORE = (() => {
             : 'Référence client « ' + c.indicMpn + ' » incomplète, donnée à titre indicatif — contrôle fait sur les caractéristiques');
         } else out.warn.push('Pas de MPN dans la BOM client : contrôle à l\'œil');
         if (!dnp) applyNotes(out, kind, pn);
+        // v1.4 — remarque écrite par le client sur CETTE ligne (colonne « Comments ») : affichée,
+        // et contrôlée comme les remarques libres (« R1 = 3K3 », ancienne référence citée)
+        if (!dnp && c && c.comment) {
+          applyNotes(out, kind, parseNotes([c.comment]));
+          out.notes.push('Remarque du client sur la ligne : « ' + c.comment + ' »');
+        }
         out.verdict = out.nc ? 'nc' : out.err.length ? 'err' : out.warn.length ? 'warn' : 'ok';
         results.push(out);
       });
@@ -4523,7 +4584,8 @@ function clientSide(c) {
   if (!c) return '<div class="cx-side"><div class="cx-cap">Ligne de la BOM client</div><div class="cx-empty">Absent de la BOM client</div></div>';
   return '<div class="cx-side"><div class="cx-cap">Ligne de la BOM client (ligne ' + c.line + ')</div>' + kv([
     ['Valeur', c.value], ['Boîtier', CMP_CORE.parsePkgFootprint(c.fp) || c.fp], ['Fabricant', c.manuf], ['MPN', c.mpn, 1], ['Tension', c.volt],
-    ['Type', c.diel], ['Précision', c.tol], ['Temp.', c.ppm], ['Description', c.desc], ['DNP', c.dnp]]
+    ['Type', c.diel], ['Précision', c.tol], ['Temp.', c.ppm], ['Description', c.desc], ['DNP', c.dnp],
+    ['Réf. client', c.clientRef ? c.clientRef + ' (pour info)' : '', 1]]
     .concat((c.cands || []).filter(x => !x.isMpn && !x.isValue && x.val !== c.value).map(x => [esc(x.col), x.val, 1]))) + '</div>';
 }
 function lumiSide(l) {
