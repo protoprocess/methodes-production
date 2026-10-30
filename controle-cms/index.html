@@ -293,9 +293,18 @@ input:focus,textarea:focus{outline:none;border-color:var(--orange)}
    la coche de l'opération CONTRÔLE CMS, et seulement quand le lot est complet
    (décision du 30/10).
    =========================================================================== */
-/* v1.1 (30/10/2026) : l'opérateur est lu dans `pp_personne`, posé par l'accueil,
+/* v1.2 (30/10/2026, questions d'Olivier) :
+   - « Photo », « Demander aux méthodes » et « Demander au client » RETIRÉS : ils ne
+     faisaient rien d'autre que cocher une case. Un bouton qui promet et ne fait rien
+     est pire que pas de bouton. Ils reviendront branchés.
+   - « À reprendre — pas encore fait » ajouté : la liste ne savait dire que ce qui
+     avait DÉJÀ été fait, donc un rework à faire n'était pas exprimable.
+   - N° de série : un seul champ, lu et compté par l'appli. Une grille de numéros à
+     cliquer marchait à 10 cartes et devenait illisible à 70 — et vos lots vont de
+     12 à 70. Le champ « combien exactement » disparaît, c'était une saisie en double.
+   v1.1 (30/10/2026) : l'opérateur est lu dans `pp_personne`, posé par l'accueil,
    au lieu d'une seconde question propre à cette appli. */
-const APP_VERSION = "1.1";
+const APP_VERSION = "1.2";
 const APP_DATE    = "30/10/2026";
 const BASE   = "https://protoprocess.app.n8n.cloud/webhook";
 const LIRE   = BASE + "/controle-cms-lecture-q7m2x9";
@@ -384,10 +393,50 @@ const ORIGINES = [
   { code:'LAVAGE',    nom:'Lavage' }
 ];
 /* « Laissé en l'état » est aussi fréquent que « repris au fer » : c'est une
-   décision, pas un oubli, donc c'est un bouton. Les quatre premières valent
-   rework ou attente et font rester la carte dans le bloc de l'écran 1. */
-const ACTIONS = ['Attente pièce','Reprise au fer','ERSA','Air chaud','Laissé en l\'état','NC pour cette prod','Repris au TRAD'];
+   décision, pas un oubli, donc c'est un bouton.
+   ATTENTION au sens : « Reprise au fer », « ERSA » et « Air chaud » disent ce qui
+   a DÉJÀ été fait pendant le contrôle. Seules les trois actions marquées EN_ATTENTE
+   laissent la carte dans le bloc « en rework / en attente » de l'écran 1. */
+const ACTIONS = [
+  { nom: 'Attente pièce',                 attente: true  },
+  { nom: 'À reprendre — pas encore fait', attente: true  },
+  { nom: 'Repris au TRAD',                attente: true  },
+  { nom: 'Reprise au fer',                attente: false },
+  { nom: 'ERSA',                          attente: false },
+  { nom: 'Air chaud',                     attente: false },
+  { nom: "Laissé en l'état",              attente: false },
+  { nom: 'NC pour cette prod',            attente: false }
+];
 const TEMPS   = [['5 min',5],['10 min',10],['15 min',15],['30 min',30],['1 h',60],['2 h et +',120]];
+
+/* Lit « 7, 11, 18 à 20 » comme un humain l'écrit, et rend les numéros.
+   L'appli ne devine pas les n° de série — elle compte ce qu'on lui donne, et
+   MONTRE ce qu'elle a compris : une lecture fausse se voit tout de suite. */
+function lireSeries(txt, lot){
+  const nus = [];
+  const vus = {};
+  String(txt || '')
+    .replace(/(\d)\s*(?:à|a|au|jusqu'?à|jusqu'?a|-|–|—|\.\.)\s*(\d)/gi, '$1-$2')
+    .split(/[^0-9-]+/)
+    .forEach(function(bout){
+      const b = String(bout || '').trim();
+      if (!b) return;
+      const m = b.match(/^(\d+)-(\d+)$/);
+      if (m) {
+        let a = Number(m[1]), z = Number(m[2]);
+        if (a > z) { const t = a; a = z; z = t; }
+        for (let i = a; i <= z && nus.length < 500; i++) { if (!vus[i]) { vus[i] = 1; nus.push(i); } }
+        return;
+      }
+      (b.match(/\d+/g) || []).forEach(function(n){
+        const v = Number(n);
+        if (v && !vus[v] && nus.length < 500) { vus[v] = 1; nus.push(v); }
+      });
+    });
+  nus.sort(function(a, b){ return a - b; });
+  const hors = lot ? nus.filter(function(n){ return n > lot; }) : [];
+  return { numeros: nus, combien: nus.length, hors_lot: hors };
+}
 
 /* --- état ---------------------------------------------------------------- */
 let LISTE = null;   // réponse de l'action liste
@@ -663,8 +712,8 @@ function ajouterDefaut(pre){
   SEQ += 1;
   DEFS.push(Object.assign({
     id: SEQ, categorie: null, origine: null, repere: '', mpn: '',
-    toutes: true, qte: '', series: '', action: null, temps: null, texte: '',
-    photo: false, methodes: false, client: false, cause: false
+    toutes: true, sansSerie: false, qte: '', series: '',
+    action: null, temps: null, texte: '', cause: false
   }, pre || {}));
   CONCL = 'defauts_signales';
   rendreDefs();
@@ -680,6 +729,38 @@ function retirerDefaut(id){ DEFS = DEFS.filter(d => d.id !== id); if (!DEFS.leng
 function maj(id, champ, val){ const d = DEFS.find(x => x.id === id); if (d) { d[champ] = val; rendreDefs(); } }
 function majTexte(id, champ, val){ const d = DEFS.find(x => x.id === id); if (d) { d[champ] = val; rendreF07(id); } }
 function bascule(id, champ){ const d = DEFS.find(x => x.id === id); if (d) { d[champ] = !d[champ]; rendreDefs(); } }
+function choisirAction(id, n){ const a = ACTIONS[n]; if (a) maj(id, 'action', a.nom); }
+
+/* La saisie des n° de série ne re-dessine pas le bloc : on perdrait le curseur
+   à chaque frappe. On ne rafraîchit que la ligne de lecture et l'aperçu F07. */
+function majSeries(id, val){
+  const d = DEFS.find(x => x.id === id);
+  if (!d) return;
+  d.series = val;
+  const e = document.getElementById('ser-' + id);
+  if (e) e.innerHTML = ligneSeries(d);
+  rendreF07(id);
+}
+function ligneSeries(d){
+  const lot = FICHE && FICHE.carte ? FICHE.carte.qte_lot : null;
+  const r = lireSeries(d.series, lot);
+  if (!r.combien) return '<span class="ex" style="font-style:normal">Tapez les numéros comme vous les écrivez : 7, 11, 18 à 20</span>';
+  const liste = r.numeros.length <= 20 ? ' : ' + r.numeros.join(', ') : '';
+  return '<span class="pastille p-pp">' + r.combien + ' carte' + (r.combien > 1 ? 's' : '') + ' comprise' + (r.combien > 1 ? 's' : '') + '</span>'
+    + '<span style="color:var(--text2);margin-left:7px;font-size:12px">' + esc(liste.slice(3) ? liste : '') + '</span>'
+    + (r.hors_lot.length
+        ? '<div class="ex" style="color:var(--rouge);font-style:normal;margin-top:5px">Hors du lot de ' + lot + ' : '
+          + esc(r.hors_lot.join(', ')) + '</div>'
+        : '');
+}
+/* Un seul endroit décide de la quantité d'un défaut : l'aperçu F07 et
+   l'enregistrement doivent dire la même chose. */
+function qteDefaut(d){
+  const lot = FICHE && FICHE.carte ? FICHE.carte.qte_lot : null;
+  if (d.toutes) return lot || null;
+  if (d.sansSerie) return Number(d.qte) || null;
+  return lireSeries(d.series, lot).combien || null;
+}
 
 function rendreDefs(){
   /* la conclusion se déduit des défauts : si on en a déclaré, c'est « défauts signalés » */
@@ -732,16 +813,28 @@ function blocDefaut(d, i){
      + '<button class="pb-btn' + (d.toutes ? ' on' : '') + '" onclick="maj(' + d.id + ',\'toutes\',true)">Toutes les cartes</button>'
      + '<button class="pb-btn' + (!d.toutes ? ' on' : '') + '" onclick="maj(' + d.id + ',\'toutes\',false)">Quelques-unes &#8594;</button>'
      + '</div>'
-     + (d.toutes ? '' :
-         '<div style="margin-top:14px"><div class="grid2" style="margin-bottom:0">'
-       + '<div class="fld"><label>Combien exactement</label><input type="text" value="' + esc(d.qte) + '" placeholder="4" oninput="majTexte(' + d.id + ',\'qte\',this.value)"></div>'
-       + '<div class="fld"><label>N° de série concernés</label><input type="text" value="' + esc(d.series) + '" placeholder="7, 11, 18 à 20" oninput="majTexte(' + d.id + ',\'series\',this.value)"></div>'
-       + '</div><p class="ex">Le n° de série, c\'est ce qu\'un client demande le jour où il remonte UNE carte précise.</p></div>')
+     + (d.toutes ? '' : (d.sansSerie
+         ? '<div style="margin-top:14px"><div class="grid2" style="margin-bottom:0">'
+           + '<div class="fld"><label>Combien de cartes</label><input type="text" value="' + esc(d.qte) + '" placeholder="20" oninput="majTexte(' + d.id + ',\'qte\',this.value)"></div>'
+           + '<div class="fld" style="display:flex;align-items:flex-end">'
+           + '<button class="btn-s" onclick="maj(' + d.id + ',\'sansSerie\',false)">Finalement je peux les lister</button></div>'
+           + '</div><p class="ex">Sans les numéros, on saura combien mais pas lesquelles. Acceptable sur un gros lot retouché, '
+           + 'gênant le jour où un client remonte UNE carte précise.</p></div>'
+         : '<div style="margin-top:14px">'
+           + '<div class="fld"><label>N° de série concernés</label>'
+           + '<input type="text" value="' + esc(d.series) + '" placeholder="7, 11, 18 à 20" oninput="majSeries(' + d.id + ',this.value)"></div>'
+           + '<div id="ser-' + d.id + '" style="margin-top:7px">' + ligneSeries(d) + '</div>'
+           + '<div style="margin-top:10px"><button class="btn-s" onclick="maj(' + d.id + ',\'sansSerie\',true)">Je ne peux pas les lister</button></div>'
+           + '</div>'))
      + '</div>';
 
   h += '<div class="sect"><label>Et donc</label><div class="pills">'
-     + ACTIONS.map(a => '<button class="pb-btn' + (d.action === a ? ' on' : '') + '" onclick="maj(' + d.id + ',\'action\',' + JSON.stringify(a).replace(/"/g, '&quot;') + ')">' + esc(a) + '</button>').join('')
-     + '</div></div>';
+     + ACTIONS.map((a, n) => '<button class="pb-btn' + (d.action === a.nom ? ' on' : '') + '" onclick="choisirAction(' + d.id + ',' + n + ')">' + esc(a.nom) + '</button>').join('')
+     + '</div>'
+     + (d.action && (ACTIONS.find(a => a.nom === d.action) || {}).attente
+         ? '<p class="ex">Cette carte restera dans « en rework / en attente » sur votre liste jusqu\'à ce que vous la soldiez.</p>'
+         : '')
+     + '</div>';
 
   h += '<div class="sect"><label>Temps passé sur ce défaut</label><div class="pills">'
      + TEMPS.map(t => '<button class="pb-btn' + (d.temps === t[1] ? ' on' : '') + '" onclick="maj(' + d.id + ',\'temps\',' + t[1] + ')">' + t[0] + '</button>').join('')
@@ -752,11 +845,11 @@ function blocDefaut(d, i){
      + '<p class="ex">Votre texte n\'est pas remplacé. Il est juste rangé à côté d\'une étiquette, pour qu\'on puisse compter ET retrouver.</p></div>';
 
   h += '<div class="sect" style="margin-top:18px;margin-bottom:0"><div class="pills">'
-     + [['photo','Photo'],['methodes','Demander aux méthodes'],['client','Demander au client'],
-        ['cause','Cause non corrigée &#8212; à traiter avant la prochaine prod']]
-         .map(f => '<button class="pb-btn' + (d[f[0]] ? ' on' : '') + '" onclick="bascule(' + d.id + ',\'' + f[0] + '\')">' + f[1] + '</button>').join('')
-     + '</div><p class="ex">Le dernier est le plus utile des quatre : le défaut est soldé pour cette prod, mais la '
-     + 'cause reste (programme My faux, référence client erronée…). Sans lui, la même reprise se refait à chaque production.</p></div>';
+     + '<button class="pb-btn' + (d.cause ? ' on' : '') + '" onclick="bascule(' + d.id + ',\'cause\')">'
+     + 'Cause non corrigée &#8212; à traiter avant la prochaine prod</button>'
+     + '</div><p class="ex">Le défaut est soldé pour cette prod, mais la cause reste (programme My faux, référence '
+     + 'client erronée…). Sans ça, la même reprise se refait à chaque production. C\'est cette ligne qui remontera '
+     + 'en rouge dans « Déjà vu sur cette carte » la prochaine fois.</p></div>';
 
   h += '<div class="f07" id="f07-' + d.id + '">' + tableF07(d) + '</div>';
   h += '<p class="ex" style="margin-left:3px">Le registre reçoit TOUT (décision du 29/10) : on ne peut pas analyser '
@@ -782,7 +875,8 @@ function tableF07(d){
   const c = FICHE.carte;
   const o = ORIGINES.find(x => x.code === d.origine);
   const k = CATS.find(x => x.code === d.categorie);
-  const q = d.toutes ? (c.qte_lot || '?') : (d.qte || '?');
+  const q = qteDefaut(d) || '?';
+  const serie = (!d.toutes && !d.sansSerie) ? lireSeries(d.series, c.qte_lot).numeros : [];
   return '<div class="h"><span>Ce qui part au registre F07 &#8212; onglet « NC internes 2026 »</span>'
     + '<span class="nc">n° attribué à l\'écriture</span></div><table>'
     + '<tr><td class="k">Code NC</td><td class="v">' + esc(o ? o.nom : '—')
@@ -793,7 +887,8 @@ function tableF07(d){
     +   esc([k ? k.nom : '', d.repere ? '— ' + d.repere : '', d.mpn ? '(' + d.mpn + ')' : ''].filter(Boolean).join(' '))
     +   (d.texte ? '\n' + esc(d.texte) : '') + '</td></tr>'
     + '<tr><td class="k">Action</td><td class="v">' + esc(d.action || '—') + '</td></tr>'
-    + '<tr><td class="k">Qté / Qté totale</td><td class="v">' + esc(q) + ' / ' + (c.qte_lot || '?') + '</td></tr>'
+    + '<tr><td class="k">Qté / Qté totale</td><td class="v">' + esc(q) + ' / ' + (c.qte_lot || '?')
+    +   (serie.length ? '  (n° ' + esc(serie.join(', ')) + ')' : '') + '</td></tr>'
     + '<tr><td class="k">Suivi par / fait par</td><td class="v">' + esc(qui()) + '</td></tr>'
     + '<tr><td class="k">Temps passé (min)</td><td class="v">' + (d.temps || '—') + '</td></tr>'
     + '<tr><td class="k">Traitée / Clôturée</td><td class="v">FALSE</td></tr>'
@@ -810,7 +905,8 @@ async function clore(){
   DEFS.forEach((d, i) => {
     if (!d.categorie) manque.push('défaut ' + (i + 1) + ' : il manque « quoi »');
     if (!d.action)    manque.push('défaut ' + (i + 1) + ' : il manque « et donc »');
-    if (!d.toutes && !d.qte) manque.push('défaut ' + (i + 1) + ' : il manque le nombre de cartes');
+    if (!d.toutes && !qteDefaut(d)) manque.push('défaut ' + (i + 1) + ' : '
+      + (d.sansSerie ? 'il manque le nombre de cartes' : 'il manque les n° de série, ou dites que vous ne pouvez pas les lister'));
   });
   let qte = null;
   if (!LOT_FINI) {
@@ -849,14 +945,14 @@ async function clore(){
       origine: d.origine || 'CMS',
       repere: d.repere || null,
       mpn: d.mpn || null,
-      qte: d.toutes ? (c.qte_lot || null) : Number(d.qte),
-      numeros_serie: d.toutes ? null : (d.series || null),
+      qte: qteDefaut(d),
+      /* on enregistre les numéros RELUS, pas la frappe : « 18 à 20 » devient
+         « 18, 19, 20 », lisible par une machine comme par un humain */
+      numeros_serie: (d.toutes || d.sansSerie) ? null
+                     : (lireSeries(d.series, c.qte_lot).numeros.join(', ') || null),
       action: d.action,
       temps_min: d.temps || null,
       texte: d.texte || null,
-      photo_a_faire: d.photo,
-      avis_methodes: d.methodes,
-      question_client: d.client,
       cause_non_corrigee: d.cause
     }))
   };
