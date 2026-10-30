@@ -293,7 +293,9 @@ input:focus,textarea:focus{outline:none;border-color:var(--orange)}
    la coche de l'opération CONTRÔLE CMS, et seulement quand le lot est complet
    (décision du 30/10).
    =========================================================================== */
-const APP_VERSION = "1.0";
+/* v1.1 (30/10/2026) : l'opérateur est lu dans `pp_personne`, posé par l'accueil,
+   au lieu d'une seconde question propre à cette appli. */
+const APP_VERSION = "1.1";
 const APP_DATE    = "30/10/2026";
 const BASE   = "https://protoprocess.app.n8n.cloud/webhook";
 const LIRE   = BASE + "/controle-cms-lecture-q7m2x9";
@@ -303,19 +305,27 @@ document.getElementById('vbadge').textContent = "v" + APP_VERSION + " — " + AP
 document.title = "Contrôle CMS v" + APP_VERSION + " — " + APP_DATE;
 
 /* --- qui est au poste ------------------------------------------------------
-   L'appli servira aussi aux autres postes (TRAD, appro, prog…), donc on ne
-   code pas « Valérie » en dur. Les initiales sont demandées une fois. */
-function qui(){ try { return localStorage.getItem('pp_ctrl_cms_qui') || ''; } catch(e){ return ''; } }
+   On réutilise `pp_personne`, que l'accueil « Que veux-tu faire maintenant ? »
+   pose déjà une fois par poste : pas de seconde question pour la même chose.
+   L'appli servira aussi aux autres postes (TRAD, appro, prog…), donc rien
+   n'est codé en dur.
+   On enregistre le NOM, pas des initiales : on pourra toujours le raccourcir
+   au moment de la remontée F07 (lot 2, formalisme encore à caler avec Fred),
+   alors qu'on ne saurait pas rouvrir « VF » en un nom. */
+function qui(){ try { return localStorage.getItem('pp_personne') || ''; } catch(e){ return ''; } }
+function sigle(n){
+  return String(n || '').split(/[\s-]+/).filter(Boolean).map(m => m[0]).join('').toUpperCase().slice(0, 2) || '?';
+}
 function majQui(){
   const q = qui();
   document.getElementById('who').innerHTML = q
-    ? '<span class="dot">' + esc(q) + '</span>' + esc(q)
+    ? '<span class="dot">' + esc(sigle(q)) + '</span>' + esc(q)
     : '<span class="dot">?</span>qui êtes-vous ?';
 }
 function changerQui(){
-  const v = (prompt("Vos initiales (elles signent chaque contrôle) :", qui()) || '').trim().toUpperCase();
+  const v = (prompt("Votre nom (il signe chaque contrôle) :", qui()) || '').trim();
   if (!v) return;
-  try { localStorage.setItem('pp_ctrl_cms_qui', v.slice(0, 4)); } catch(e){}
+  try { localStorage.setItem('pp_personne', v.slice(0, 40)); } catch(e){}
   majQui();
 }
 
