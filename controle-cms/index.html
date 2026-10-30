@@ -142,6 +142,22 @@ input:focus,textarea:focus{outline:none;border-color:var(--orange)}
 .op.moi{background:var(--orange);border-color:transparent;color:#fff;font-weight:700}
 .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--border2);border-top-color:var(--orange);border-radius:50%;animation:t .7s linear infinite;vertical-align:-2px}
 @keyframes t{to{transform:rotate(360deg)}}
+/* bouton d'aide : en bas à droite, comme « Signaler » dans les autres applis */
+#aide-btn{position:fixed;right:18px;bottom:18px;z-index:60;padding:10px 16px;background:var(--ppblue);color:#fff;border:none;border-radius:24px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 2px 10px rgba(20,30,50,.18)}
+#aide-btn:hover{filter:brightness(1.12)}
+#aide-fond{position:fixed;inset:0;z-index:70;background:rgba(15,20,30,.45);display:none;align-items:flex-end;justify-content:center;padding:20px}
+#aide-fond.on{display:flex}
+#aide-boite{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);width:min(620px,100%);max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 30px rgba(20,30,50,.25)}
+#aide-boite .ah{display:flex;align-items:center;gap:9px;padding:13px 16px;border-bottom:1px solid var(--border);background:var(--ppblue-bg);color:var(--ppblue);font-weight:700;font-size:12.5px;border-radius:var(--radius-lg) var(--radius-lg) 0 0}
+#aide-boite .ah button{margin-left:auto;background:none;border:0;color:var(--ppblue);cursor:pointer;font-size:16px;font-family:inherit}
+#aide-fil{padding:14px 16px;overflow:auto;flex:1;min-height:60px}
+.bulle{margin-bottom:13px;font-size:13px;line-height:1.6}
+.bulle .q{font-weight:600}
+.bulle .r{white-space:pre-wrap;margin-top:4px}
+.bulle .n{display:block;margin-top:6px;font-size:11.5px;color:var(--ambre);background:var(--ambre-bg);border-radius:var(--radius);padding:6px 9px}
+.bulle .n.rouge{color:var(--rouge);background:var(--rouge-bg)}
+#aide-pied{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:9px;align-items:flex-end}
+#aide-pied textarea{min-height:50px}
 @media(max-width:860px){
  .grid2{grid-template-columns:1fr}
  .row{flex-wrap:wrap;gap:8px}
@@ -273,6 +289,23 @@ input:focus,textarea:focus{outline:none;border-color:var(--orange)}
 
 </div>
 
+<button id="aide-btn" onclick="ouvrirAide()">Demander de l'aide</button>
+
+<div id="aide-fond" onclick="if(event.target===this)fermerAide()">
+  <div id="aide-boite">
+    <div class="ah"><span>Demander de l'aide</span><button onclick="fermerAide()">&#10005;</button></div>
+    <div id="aide-fil">
+      <p class="ex" style="font-style:normal">Posez votre question comme vous la diriez. L'aide explique comment
+        l'appli fonctionne — elle ne décide rien et ne modifie rien. Si votre question demande un arbitrage,
+        elle est notée pour Olivier et vous sera répondue en séance.</p>
+    </div>
+    <div id="aide-pied">
+      <textarea id="aide-q" placeholder="Votre question…" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey))envoyerAide()"></textarea>
+      <button class="big" style="padding:10px 18px;font-size:13px" id="aide-env" onclick="envoyerAide()">Envoyer</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ===========================================================================
    Contrôle CMS — appli du poste de contrôle CMS
@@ -293,7 +326,10 @@ input:focus,textarea:focus{outline:none;border-color:var(--orange)}
    la coche de l'opération CONTRÔLE CMS, et seulement quand le lot est complet
    (décision du 30/10).
    =========================================================================== */
-/* v1.2 (30/10/2026, questions d'Olivier) :
+/* v1.3 (30/10/2026) : bouton « Demander de l'aide ». La question part avec le
+   contexte de l'écran. L'aide explique et ne décide rien ; ce qui demande un
+   arbitrage est remonté à Olivier au lieu d'être tranché sur place.
+   v1.2 (30/10/2026, questions d'Olivier) :
    - « Photo », « Demander aux méthodes » et « Demander au client » RETIRÉS : ils ne
      faisaient rien d'autre que cocher une case. Un bouton qui promet et ne fait rien
      est pire que pas de bouton. Ils reviendront branchés.
@@ -304,11 +340,12 @@ input:focus,textarea:focus{outline:none;border-color:var(--orange)}
      12 à 70. Le champ « combien exactement » disparaît, c'était une saisie en double.
    v1.1 (30/10/2026) : l'opérateur est lu dans `pp_personne`, posé par l'accueil,
    au lieu d'une seconde question propre à cette appli. */
-const APP_VERSION = "1.2";
+const APP_VERSION = "1.3";
 const APP_DATE    = "30/10/2026";
 const BASE   = "https://protoprocess.app.n8n.cloud/webhook";
 const LIRE   = BASE + "/controle-cms-lecture-q7m2x9";
 const ECRIRE = BASE + "/controle-cms-ecriture-k4p8w3";
+const AIDE   = BASE + "/controle-cms-aide-h3n7v5";
 
 document.getElementById('vbadge').textContent = "v" + APP_VERSION + " — " + APP_DATE;
 document.title = "Contrôle CMS v" + APP_VERSION + " — " + APP_DATE;
@@ -915,7 +952,9 @@ async function clore(){
   }
   if (manque.length) { alerte('<b>Il manque quelque chose avant de clore :</b><br>' + manque.map(esc).join('<br>'), 'rouge'); window.scrollTo(0,0); return; }
 
-  const boutons = document.querySelectorAll('.big');
+  /* #s1 seulement : sans ça on désactiverait aussi le « Envoyer » de l'aide,
+     qui porte la même classe et qui ne serait jamais réactivé. */
+  const boutons = document.querySelectorAll('#s1 .big');
   boutons.forEach(b => { b.disabled = true; });
   alerte('<span class="spin"></span> enregistrement…');
 
@@ -974,6 +1013,67 @@ async function clore(){
     alerte('<b>Rien n\'a été enregistré.</b> ' + esc(e.message), 'rouge');
     window.scrollTo(0, 0);
   }
+}
+
+/* --- demander de l'aide ----------------------------------------------------
+   La question part avec le contexte de l'écran : sur quelle carte elle est,
+   combien de défauts sont en cours de saisie. « Pourquoi ma carte n'est pas
+   dans la liste ? » devient une vraie réponse au lieu d'une généralité.
+   L'aide n'a aucun moyen d'agir : elle explique, et remonte à Olivier ce qui
+   demande un arbitrage. */
+function ouvrirAide(){
+  document.getElementById('aide-fond').classList.add('on');
+  setTimeout(() => { try { document.getElementById('aide-q').focus(); } catch(e){} }, 60);
+}
+function fermerAide(){ document.getElementById('aide-fond').classList.remove('on'); }
+
+function contexteAide(){
+  const surFiche = document.getElementById('s1').style.display !== 'none' && FICHE && FICHE.carte;
+  if (surFiche) {
+    const c = FICHE.carte;
+    return { ecran: 'fiche', contexte: {
+      so: c.so, carte: c.projet, client: c.client, lot: c.qte_lot,
+      expedition: c.expedition, deja: c.deja_controlees || 0, defauts: DEFS.length,
+      historique: (FICHE.productions_anterieures || []).filter(h => h.a_du_contenu).length
+    } };
+  }
+  return { ecran: 'liste', contexte: {
+    a_controler: LISTE ? (LISTE.a_controler || []).length : null,
+    en_attente: LISTE ? (LISTE.en_attente || []).length : null
+  } };
+}
+
+async function envoyerAide(){
+  const zone = document.getElementById('aide-q');
+  const q = (zone.value || '').trim();
+  if (!q) { zone.focus(); return; }
+  if (!qui()) { changerQui(); if (!qui()) return; }
+  const fil = document.getElementById('aide-fil');
+  const btn = document.getElementById('aide-env');
+  const ctx = contexteAide();
+  const bloc = document.createElement('div');
+  bloc.className = 'bulle';
+  bloc.innerHTML = '<div class="q">' + esc(q) + '</div><div class="r"><span class="spin"></span></div>';
+  fil.appendChild(bloc);
+  fil.scrollTop = fil.scrollHeight;
+  zone.value = ''; btn.disabled = true;
+  try {
+    const r = await appel(AIDE, {
+      question: q, auteur: qui(), app_version: APP_VERSION,
+      ecran: ctx.ecran, contexte: ctx.contexte
+    });
+    bloc.querySelector('.r').textContent = r.reponse || '';
+    if (r.bloquant) {
+      bloc.insertAdjacentHTML('beforeend', '<span class="n rouge">Allez voir Olivier — votre question lui est remontée.</span>');
+    } else if (r.pour_olivier) {
+      bloc.insertAdjacentHTML('beforeend', '<span class="n">Noté pour Olivier : ce sera vu avec lui en séance.</span>');
+    }
+  } catch (e) {
+    bloc.querySelector('.r').textContent = "L'aide n'a pas répondu. Si vous êtes bloquée, allez voir Olivier.";
+    bloc.insertAdjacentHTML('beforeend', '<span class="n rouge">' + esc(e.message) + '</span>');
+  }
+  btn.disabled = false;
+  fil.scrollTop = fil.scrollHeight;
 }
 
 /* --- départ --------------------------------------------------------------- */
