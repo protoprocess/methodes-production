@@ -326,7 +326,11 @@ input:focus,textarea:focus{outline:none;border-color:var(--orange)}
    la coche de l'opération CONTRÔLE CMS, et seulement quand le lot est complet
    (décision du 30/10).
    =========================================================================== */
-/* v1.3 (30/10/2026) : bouton « Demander de l'aide ». La question part avec le
+/* v1.4 (30/10/2026) : « Ça vient d'où ? » reprend les 10 codes du registre F07,
+   à l'orthographe exacte. Relevé sur les 230 lignes du registre vivant : nos 8
+   origines étaient INCOMPLÈTES (« En crémage » et « Client » manquaient) et trois
+   d'entre elles portaient une orthographe inventée. Le F07 détient la vérité.
+   v1.3 (30/10/2026) : bouton « Demander de l'aide ». La question part avec le
    contexte de l'écran. L'aide explique et ne décide rien ; ce qui demande un
    arbitrage est remonté à Olivier au lieu d'être tranché sur place.
    v1.2 (30/10/2026, questions d'Olivier) :
@@ -340,7 +344,7 @@ input:focus,textarea:focus{outline:none;border-color:var(--orange)}
      12 à 70. Le champ « combien exactement » disparaît, c'était une saisie en double.
    v1.1 (30/10/2026) : l'opérateur est lu dans `pp_personne`, posé par l'accueil,
    au lieu d'une seconde question propre à cette appli. */
-const APP_VERSION = "1.3";
+const APP_VERSION = "1.4";
 const APP_DATE    = "30/10/2026";
 const BASE   = "https://protoprocess.app.n8n.cloud/webhook";
 const LIRE   = BASE + "/controle-cms-lecture-q7m2x9";
@@ -410,24 +414,34 @@ async function appel(url, charge){
    qui est vu au contrôle était codé CMS, le registre accuserait le poste de
    contrôle de ce qu'il ne fait que voir (décision du 29/10). */
 const CATS = [
-  { code:'composant_manquant', nom:'Composant manquant',  origine:'APPRO' },
+  { code:'composant_manquant', nom:'Composant manquant',  origine:'Appro / Reception' },
   { code:'billes',             nom:'Billes de soudure',   origine:'CMS' },
-  { code:'boitier',            nom:'Boîtier / empreinte', origine:'COMPOSANT' },
+  { code:'boitier',            nom:'Boîtier / empreinte', origine:'Composant' },
   { code:'sens',               nom:"À l'envers / sens",   origine:'CMS' },
   { code:'soudure',            nom:'Soudure à reprendre', origine:'CMS' },
   { code:'decale',             nom:'Décalé',              origine:'CMS' },
   { code:'pont',               nom:'Pont de soudure',     origine:'CMS' },
   { code:'autre',              nom:'Autre…',              origine:'CMS' }
 ];
+/* LES CODES DU F07, AU CARACTÈRE PRÈS (décision du 30/10 : « celui qui détient la
+   vérité c'est le F07 »). Relevé sur les 230 lignes des quatre onglets du registre
+   vivant, classés par usage réel. Les codes sont écrits exactement comme Fred les
+   écrit — sans accent à « Appro / Reception » et « Encremage » — pour que l'appli
+   et le registre comptent la même chose.
+   Bénéfice de bord : la saisie à la main a produit quatre variantes (« TRAD » seul
+   16 fois, « BOM (Devis » 4 fois, « Appro » 1, « Lavage carte » 1). L'appli écrivant
+   toujours la même orthographe, le registre se nettoie de lui-même à partir d'ici. */
 const ORIGINES = [
-  { code:'CMS',       nom:'CMS' },
-  { code:'APPRO',     nom:'Appro / Réception' },
-  { code:'COMPOSANT', nom:'Composant' },
-  { code:'PROG',      nom:'Prog / Dossier' },
-  { code:'BOM',       nom:'BOM / Devis' },
-  { code:'PCB',       nom:'PCB' },
-  { code:'TRAD',      nom:'TRAD / Emballage' },
-  { code:'LAVAGE',    nom:'Lavage' }
+  { code:'CMS',               nom:'CMS',               vu:80 },
+  { code:'TRAD / EMBALLAGE',  nom:'TRAD / EMBALLAGE',  vu:33 },
+  { code:'Appro / Reception', nom:'Appro / Reception', vu:31 },
+  { code:'BOM Devis',         nom:'BOM Devis',         vu:31 },
+  { code:'Prog / Dossier',    nom:'Prog / Dossier',    vu:25 },
+  { code:'Composant',         nom:'Composant',         vu:10 },
+  { code:'PCB',               nom:'PCB',               vu:8 },
+  { code:'Lavage / Emballage',nom:'Lavage / Emballage',vu:8 },
+  { code:'Encremage',         nom:'Encremage',         vu:3 },
+  { code:'Client',            nom:'Client',            vu:1 }
 ];
 /* « Laissé en l'état » est aussi fréquent que « repris au fer » : c'est une
    décision, pas un oubli, donc c'est un bouton.
@@ -838,8 +852,8 @@ function blocDefaut(d, i){
 
   h += '<div class="sect"><label>Ça vient d\'où ? <span style="text-transform:none;letter-spacing:0;font-style:italic">— proposé d\'après le défaut, corrigeable</span></label><div class="pills">'
      + ORIGINES.map(o => '<button class="pb-btn' + (d.origine === o.code ? ' on' : '') + '" onclick="maj(' + d.id + ',\'origine\',\'' + o.code + '\')">' + o.nom + '</button>').join('')
-     + '</div><p class="ex">C\'est la colonne « Code NC » du F07, et c\'est <b>l\'origine du problème, pas l\'endroit '
-     + 'où on l\'a vu</b> : « composant manquant » est presque toujours de l\'appro.</p></div>';
+     + '</div><p class="ex">C\'est la colonne « Code NC » du registre F07, reprise mot pour mot. C\'est <b>l\'origine '
+     + 'du problème, pas l\'endroit où on l\'a vu</b> : « composant manquant » est presque toujours de l\'appro.</p></div>';
 
   h += '<div class="grid2">'
      + '<div class="fld"><label>Repère(s)</label><input type="text" value="' + esc(d.repere) + '" placeholder="Q1, C45, U12…" oninput="majTexte(' + d.id + ',\'repere\',this.value)"></div>'
