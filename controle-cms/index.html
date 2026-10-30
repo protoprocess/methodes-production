@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contrôle CMS</title>
+<style>
+:root{
+  --bg:#f5f6f8; --surface:#ffffff; --surface2:#fafbfc;
+  --border:#e4e7ec; --border2:#cfd5de;
+  --text:#1b2232; --text2:#5a6577; --text3:#8e98a8;
+  --orange:#F07B1F; --orange-bg:#FDF1E6;
+  --ppblue:#17697A; --ppblue-bg:#E6F2F4;
+  --rouge:#A32D2D; --rouge-bg:#FCEBEB; --rouge-l:#C94B4B;
+  --ambre:#854F0B; --ambre-bg:#FAEEDA; --ambre-l:#D89B3A;
+  --bleuf:#2F5273; --bleuf-bg:#EAF0F6; --bleuf-l:#5A7FA3;
+  --vert:#3B6D11;  --vert-bg:#EAF3DE;
+  --radius:6px; --radius-lg:10px;
+  --mono:"SF Mono","Cascadia Code",Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+i{font-style:normal;display:inline-block}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;line-height:1.5}
+header{background:var(--surface);height:52px;display:flex;align-items:center;gap:14px;padding:0 20px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
+.logo-text{display:flex;align-items:center;font-size:13px;font-weight:600}
+.logo-text .lt{color:var(--text)}.logo-text .ls{color:var(--border2);margin:0 4px}.logo-text .lo{color:var(--orange)}
+.vbadge{font-size:10px;color:var(--text3);border:1px solid var(--border);border-radius:20px;padding:2px 9px;font-family:var(--mono)}
+.who{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2);cursor:pointer}
+.who .dot{width:24px;height:24px;border-radius:50%;background:var(--orange);color:#fff;display:grid;place-items:center;font-size:10px;font-weight:700}
+.wrap{max-width:min(96vw,1800px);margin:0 auto;padding:20px}
+.note{background:var(--orange-bg);border-left:4px solid var(--orange);border-radius:var(--radius);padding:13px 16px;font-size:12.5px;color:var(--text2);margin-bottom:20px}
+.note b{color:var(--text)}
+.note.rouge{background:var(--rouge-bg);border-left-color:var(--rouge-l)}
+.note.vert{background:var(--vert-bg);border-left-color:var(--vert)}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:22px}
+.tab{padding:11px 18px;color:var(--text3);border-bottom:2px solid transparent;cursor:pointer;font-size:13px;background:none;border-top:0;border-left:0;border-right:0;font-family:inherit;font-weight:500}
+.tab.active{color:var(--orange);border-bottom-color:var(--orange)}
+.tab:disabled{opacity:.45;cursor:default}
+section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:0 1px 2px rgba(20,30,50,.04);margin-bottom:18px}
+.shead{display:flex;align-items:center;gap:10px;padding:11px 15px;border-bottom:1px solid var(--border);background:var(--surface2)}
+.shead h2{margin:0;font-size:11.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text2)}
+.cpt{font-family:var(--mono);font-size:11.5px;font-weight:700;border-radius:20px;padding:2px 9px}
+.c-ok{background:var(--ppblue-bg);color:var(--ppblue)}
+.c-crit{background:var(--ambre-bg);color:var(--ambre)}
+.c-urg{background:var(--rouge-bg);color:var(--rouge)}
+.shint{font-size:11.5px;color:var(--text3);margin-left:auto}
+.row{position:relative;display:flex;align-items:center;gap:14px;padding:11px 14px 11px 18px;border-bottom:1px solid #f0f2f5;cursor:pointer}
+.row:last-child{border-bottom:0}
+.row:hover{background:var(--surface2)}
+.row::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px}
+.row.rouge::before{background:var(--rouge-l)}  .row.rouge{background:#fffafa}
+.row.ambre::before{background:var(--ambre-l)}  .row.ambre{background:#fffdf8}
+.row.gris::before{background:var(--border2)}
+.row.nocli{cursor:default}
+.row .so{font-family:var(--mono);font-size:12px;color:var(--ppblue);font-weight:600;min-width:108px}
+.row .cli{min-width:112px;color:var(--text2);font-size:12px;font-weight:500}
+.row .crt{flex:1;min-width:0}
+.row .crt b{font-weight:600;font-size:13px}
+.row .crt small{display:block;color:var(--text3);font-size:11px;margin-top:1px}
+.row .qte{font-family:var(--mono);font-size:12px;color:var(--text2);min-width:46px;text-align:right}
+.row .exp{min-width:104px;text-align:right}
+.row .exp b{display:block;font-family:var(--mono);font-size:12px}
+.row .exp small{color:var(--text3);font-size:10px}
+.pastille{display:inline-block;font-size:10px;font-weight:700;border-radius:20px;padding:2px 8px;flex-shrink:0;white-space:nowrap}
+.p-rouge{background:var(--rouge-bg);color:var(--rouge)}
+.p-ambre{background:var(--ambre-bg);color:var(--ambre)}
+.p-bleu{background:var(--bleuf-bg);color:var(--bleuf)}
+.p-pp{background:var(--ppblue-bg);color:var(--ppblue)}
+.p-vert{background:var(--vert-bg);color:var(--vert)}
+.body{padding:18px}
+.fiche-h{display:flex;align-items:flex-start;gap:18px;flex-wrap:wrap;padding-bottom:15px;border-bottom:1px solid var(--border);margin-bottom:18px}
+.fiche-h .t{flex:1;min-width:230px}
+.fiche-h .t .so{font-family:var(--mono);color:var(--ppblue);font-size:12.5px;font-weight:600}
+.fiche-h .t h1{margin:3px 0 3px;font-size:20px;font-weight:700;letter-spacing:-.2px}
+.fiche-h .t .sub{color:var(--text3);font-size:12px}
+.meta{display:flex;gap:24px}
+.meta div{text-align:right}
+.meta .k{font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.meta .v{font-family:var(--mono);font-size:15px;margin-top:2px;font-weight:600}
+.sect{margin-bottom:20px}
+.sect>label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:8px;font-weight:600}
+.past{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:0 1px 2px rgba(20,30,50,.04)}
+.past .ph{display:flex;align-items:center;gap:9px;padding:10px 14px;background:var(--orange-bg);border-bottom:1px solid var(--border);font-size:12.5px}
+.past .ph i{color:var(--orange);font-size:14px}
+.past .ph b{font-weight:700}
+.past .pb{padding:2px 14px 12px}
+.past .it{padding:10px 0;border-bottom:1px dashed var(--border);font-size:12.5px}
+.past .it:last-child{border-bottom:0}
+.past .it .d{font-family:var(--mono);font-size:10.5px;color:var(--text3);margin-bottom:3px}
+.past .it .x{color:var(--text);white-space:pre-wrap}
+.past .it .pastille{margin-left:6px}
+.repro{margin-top:8px;background:var(--surface);border:1px solid var(--border);color:var(--text3);border-radius:20px;padding:3px 11px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:500}
+.repro:hover{border-color:var(--orange);color:var(--orange)}
+.pills{display:flex;gap:7px;flex-wrap:wrap}
+.pb-btn{border:1px solid var(--border);background:var(--surface);color:var(--text2);border-radius:20px;padding:6px 13px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500}
+.pb-btn:hover{border-color:var(--border2);color:var(--text)}
+.pb-btn.on{background:var(--orange);color:#fff;border-color:transparent}
+.pb-btn.sug{border-color:var(--ppblue);color:var(--ppblue);background:var(--ppblue-bg)}
+.ccl{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:15px 16px;margin-bottom:4px}
+.ccl>label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:9px;font-weight:700}
+.ccl .auto{display:none;margin-top:10px;font-size:12px}
+.acts{display:flex;gap:11px;align-items:center;flex-wrap:wrap;padding-top:17px;border-top:1px solid var(--border);margin-top:18px}
+.big{padding:14px 30px;background:var(--vert);color:#fff;border:none;border-radius:var(--radius);font-size:15px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:9px;font-family:inherit}
+.big:hover{filter:brightness(1.12)}
+.big:disabled{opacity:.5;cursor:default;filter:none}
+.big i{font-size:18px}
+.big.o{background:var(--orange)}.big.o:hover{background:#d96c15;filter:none}
+.btn-s{padding:10px 17px;background:var(--surface);color:var(--text2);border:1px solid var(--border);border-radius:var(--radius);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;font-family:inherit;font-weight:500}
+.btn-s:hover{border-color:var(--border2);color:var(--text)}
+.btn-s.on{background:var(--ambre-bg);border-color:var(--ambre-l);color:var(--ambre)}
+.sig{margin-left:auto;font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px}
+.def{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:17px 17px 17px 20px;margin-bottom:11px;box-shadow:0 1px 2px rgba(20,30,50,.04);overflow:hidden}
+.def::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--ambre-l)}
+.def-h{display:flex;align-items:center;gap:8px;margin-bottom:15px;font-size:12px;color:var(--text2)}
+.def-h .n{font-family:var(--mono);color:var(--orange);font-weight:700}
+.def-h button{margin-left:auto;background:none;border:0;color:var(--text3);cursor:pointer;font-size:15px;padding:0;font-family:inherit}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.fld label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px;font-weight:600}
+input[type=text],textarea{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:9px 11px;font-size:13px;font-family:inherit}
+input[type=text]{font-family:var(--mono)}
+textarea{resize:vertical;min-height:64px;line-height:1.55}
+input:focus,textarea:focus{outline:none;border-color:var(--orange)}
+.ex{font-size:11px;color:var(--text3);margin-top:6px;font-style:italic}
+.add{width:100%;padding:12px;background:var(--surface);border:1px dashed var(--border2);border-radius:var(--radius);color:var(--text3);font-size:12px;cursor:pointer;font-family:inherit;font-weight:500}
+.add:hover{color:var(--orange);border-color:var(--orange)}
+.empty{color:var(--text3);font-size:12px;padding:18px;text-align:center}
+.f07{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:16px 0 0;box-shadow:0 1px 2px rgba(20,30,50,.04)}
+.f07 .h{display:flex;align-items:center;gap:9px;padding:10px 14px;background:var(--ppblue-bg);border-bottom:1px solid var(--border);font-size:12px;color:var(--ppblue);font-weight:700}
+.f07 .h .nc{margin-left:auto;font-family:var(--mono);font-weight:700}
+.f07 table{width:100%;border-collapse:collapse;font-size:12px}
+.f07 td{padding:7px 14px;border-bottom:1px solid #f0f2f5;vertical-align:top}
+.f07 tr:last-child td{border-bottom:0}
+.f07 td.k{width:190px;color:var(--text3);font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;font-weight:600;white-space:nowrap}
+.f07 td.v{font-family:var(--mono);font-size:12px;white-space:pre-wrap}
+.f07 tr.fred td{background:var(--surface2)}
+.f07 tr.fred td.v{font-family:var(--sans);color:var(--text3);font-style:italic}
+.consigne{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:13px 15px;font-size:12.5px;white-space:pre-wrap;line-height:1.6}
+.deroule{display:flex;gap:7px;flex-wrap:wrap}
+.op{font-size:11px;border-radius:20px;padding:3px 10px;border:1px solid var(--border);color:var(--text3);background:var(--surface)}
+.op.faite{background:var(--vert-bg);border-color:transparent;color:var(--vert);font-weight:600}
+.op.moi{background:var(--orange);border-color:transparent;color:#fff;font-weight:700}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid var(--border2);border-top-color:var(--orange);border-radius:50%;animation:t .7s linear infinite;vertical-align:-2px}
+@keyframes t{to{transform:rotate(360deg)}}
+@media(max-width:860px){
+ .grid2{grid-template-columns:1fr}
+ .row{flex-wrap:wrap;gap:8px}
+ .row .so,.row .cli,.row .qte,.row .exp{min-width:auto;text-align:left}
+ .meta{width:100%;justify-content:flex-start}.meta div{text-align:left}
+ .f07 td.k{width:auto}
+}
+</style>
+</head>
+<body>
+
+<script>
+/* Acces commun Proto Process — identique aux autres applis (chantier 72).
+   Le code est saisi une fois par appareil et garde en localStorage ; l en-tete
+   X-PP-Auth est pose par cet intercepteur sur tout appel vers n8n. L ecran de
+   saisie n apparait que si n8n refuse (401/403). */
+(function(){
+  var KEY='pp_access_code', HDR='X-PP-Auth', HOST='protoprocess.app.n8n.cloud';
+  function get(){try{return localStorage.getItem(KEY)||''}catch(e){return ''}}
+  function set(v){try{localStorage.setItem(KEY,v)}catch(e){}}
+  function del(){try{localStorage.removeItem(KEY)}catch(e){}}
+
+  var _f = window.fetch;
+  window.fetch = function(input, init){
+    var url = '';
+    try { url = (typeof input === 'string') ? input : ((input && input.url) || ''); } catch(e){}
+    if (url.indexOf(HOST) === -1) { return _f.apply(this, arguments); }
+    init = init || {};
+    try { var h = new Headers(init.headers || {}); h.set(HDR, get()); init.headers = h; } catch(e){}
+    return _f.call(this, input, init).then(function(r){
+      if (r && (r.status === 401 || r.status === 403)) { del(); demander("Code d'acces refuse. Ressaisissez-le."); }
+      return r;
+    });
+  };
+
+  var box = null;
+  function construire(){
+    if (box) return box;
+    box = document.createElement('div');
+    box.id = 'pp-gate';
+    box.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:#0a0c12;display:none;'
+      + 'align-items:center;justify-content:center;padding:20px;'
+      + 'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif';
+    box.innerHTML =
+      '<div style="background:#1a2030;border:1px solid #262e42;border-radius:10px;padding:26px;max-width:380px;width:100%">'
+      + '<div style="font-size:13px;font-weight:500;margin-bottom:14px">'
+      +   '<span style="color:#fff">PROTO PROCESS</span><span style="color:#444;margin:0 3px">/</span>'
+      +   '<span style="color:#F07B1F">Acces</span></div>'
+      + '<div style="font-size:12.5px;color:#94a3b8;line-height:1.55;margin-bottom:16px">'
+      +   "Saisissez le code d'acces interne. Il ne vous sera demande qu'une fois sur cet appareil.</div>"
+      + '<input id="pp-in" type="password" placeholder="Code d acces" autocomplete="off" '
+      +   'style="width:100%;background:#161b27;border:1px solid #262e42;border-radius:6px;color:#e2e8f0;'
+      +   'padding:9px 11px;font-size:13px;outline:none;font-family:inherit;box-sizing:border-box">'
+      + '<div id="pp-err" style="font-size:12px;color:#f09595;margin-top:9px;min-height:16px"></div>'
+      + '<button id="pp-btn" style="width:100%;margin-top:12px;padding:9px;background:#F07B1F;color:#fff;'
+      +   'border:none;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">Valider</button>'
+      + '</div>';
+    document.body.appendChild(box);
+    var inp = box.querySelector('#pp-in'), btn = box.querySelector('#pp-btn');
+    btn.addEventListener('click', function(){
+      var v = (inp.value || '').trim();
+      if (!v) { box.querySelector('#pp-err').textContent = 'Code requis.'; return; }
+      set(v); inp.value = ''; box.style.display = 'none'; location.reload();
+    });
+    inp.addEventListener('keydown', function(e){ if (e.key === 'Enter') { btn.click(); } });
+    return box;
+  }
+
+  function demander(msg){
+    if (!document.body) { document.addEventListener('DOMContentLoaded', function(){ demander(msg); }); return; }
+    var b = construire();
+    b.querySelector('#pp-err').textContent = msg || '';
+    b.style.display = 'flex';
+    setTimeout(function(){ try { b.querySelector('#pp-in').focus(); } catch(e){} }, 50);
+  }
+
+  window.ppChangerCode = function(){ del(); demander(''); };
+})();
+</script>
+
+<header>
+  <img src="../shared/picto-pp.png" alt="Proto Process" width="24" height="24" style="object-fit:contain" onerror="this.style.display='none'">
+  <span class="logo-text"><span class="lt">PROTO PROCESS</span><span class="ls">/</span><span class="lo">Contrôle CMS</span></span>
+  <span class="vbadge" id="vbadge"></span>
+  <span class="who" id="who" onclick="changerQui()" title="Cliquer pour changer d'opérateur"></span>
+</header>
+
+<div class="wrap">
+
+  <div id="alerte"></div>
+
+  <div class="tabs">
+    <button class="tab active" id="t0" onclick="go(0)">1 — Ma liste</button>
+    <button class="tab" id="t1" onclick="go(1)" disabled>2 — Saisie du contrôle</button>
+  </div>
+
+  <!-- ÉCRAN 1 -->
+  <div id="s0">
+
+    <section>
+      <div class="shead">
+        <h2>À contrôler</h2>
+        <span class="cpt c-urg" id="n-ctrl">—</span>
+        <span class="shint">triées par date d'expédition — la plus urgente en haut</span>
+      </div>
+      <div id="l-ctrl"><div class="empty"><span class="spin"></span> lecture d'Odoo…</div></div>
+    </section>
+
+    <section>
+      <div class="shead">
+        <h2>En rework / en attente</h2>
+        <span class="cpt c-crit" id="n-rew">—</span>
+        <span class="shint">déclarées et pas soldées — elles ne quittent pas l'écran</span>
+      </div>
+      <div id="l-rew"><div class="empty">—</div></div>
+    </section>
+
+    <section>
+      <div class="shead"><h2>Contrôlées aujourd'hui</h2><span class="cpt c-ok" id="n-jour">—</span></div>
+      <div id="l-jour"><div class="empty">Rien encore aujourd'hui.</div></div>
+    </section>
+
+    <p class="ex" id="mesure" style="text-align:right"></p>
+
+  </div>
+
+  <!-- ÉCRAN 2 -->
+  <div id="s1" style="display:none"></div>
+
+</div>
+
+<script>
+/* ===========================================================================
+   Contrôle CMS — appli du poste de contrôle CMS
+   v1.0 — 30/10/2026
+
+   POURQUOI
+   Valérie écrivait son contrôle en texte libre dans la consigne de la tâche
+   Odoo, entre crochets : « [ (val) 30.10.26 ctrl ok (aoi refab) ] ». Personne
+   ne relit cette ligne, donc rien n'était comptable ni retrouvable, et le
+   registre F07 ne recevait qu'une partie de ce qui se passait réellement.
+   Cette appli range la même information à côté d'étiquettes, pour qu'on puisse
+   COMPTER et RETROUVER — sans remplacer son texte libre, qui reste le plus
+   utile pour une refabrication.
+
+   CE QU'ELLE N'ÉCRIT PAS
+   Rien dans la consigne Odoo : c'est un outil descendant, les méthodes y
+   notent, la production y lit (décision du 29/10). La SEULE écriture Odoo est
+   la coche de l'opération CONTRÔLE CMS, et seulement quand le lot est complet
+   (décision du 30/10).
+   =========================================================================== */
+const APP_VERSION = "1.0";
+const APP_DATE    = "30/10/2026";
+const BASE   = "https://protoprocess.app.n8n.cloud/webhook";
+const LIRE   = BASE + "/controle-cms-lecture-q7m2x9";
+const ECRIRE = BASE + "/controle-cms-ecriture-k4p8w3";
+
+document.getElementById('vbadge').textContent = "v" + APP_VERSION + " — " + APP_DATE;
+document.title = "Contrôle CMS v" + APP_VERSION + " — " + APP_DATE;
+
+/* --- qui est au poste ------------------------------------------------------
+   L'appli servira aussi aux autres postes (TRAD, appro, prog…), donc on ne
+   code pas « Valérie » en dur. Les initiales sont demandées une fois. */
+function qui(){ try { return localStorage.getItem('pp_ctrl_cms_qui') || ''; } catch(e){ return ''; } }
+function majQui(){
+  const q = qui();
+  document.getElementById('who').innerHTML = q
+    ? '<span class="dot">' + esc(q) + '</span>' + esc(q)
+    : '<span class="dot">?</span>qui êtes-vous ?';
+}
+function changerQui(){
+  const v = (prompt("Vos initiales (elles signent chaque contrôle) :", qui()) || '').trim().toUpperCase();
+  if (!v) return;
+  try { localStorage.setItem('pp_ctrl_cms_qui', v.slice(0, 4)); } catch(e){}
+  majQui();
+}
+
+/* --- utilitaires ---------------------------------------------------------- */
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function jj(d){ if (!d) return ''; const p = String(d).slice(0,10).split('-'); return p.length === 3 ? p[2]+'/'+p[1] : String(d); }
+function quand(n){
+  if (n === null || n === undefined) return 'sans date';
+  if (n < 0) return 'dépassée de ' + (-n) + ' j';
+  if (n === 0) return "aujourd'hui";
+  if (n === 1) return 'demain';
+  return 'dans ' + n + ' j';
+}
+function alerte(txt, genre){
+  document.getElementById('alerte').innerHTML = txt
+    ? '<div class="note ' + (genre || '') + '">' + txt + '</div>' : '';
+}
+async function appel(url, charge){
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(charge)
+  });
+  const t = await r.text();
+  if (!r.ok) throw new Error('n8n a répondu ' + r.status + (t ? ' — ' + t.slice(0, 300) : ''));
+  let j = null;
+  try { j = JSON.parse(t); } catch(e){ throw new Error('Réponse illisible : ' + t.slice(0, 200)); }
+  if (j && j.ok === false) throw new Error(j.motif || 'refusé');
+  return j;
+}
+
+/* --- référentiels de saisie ----------------------------------------------
+   7 catégories couvrent 97,5 % de 23 mois de F07 réel (mesure du 29/10).
+   L'origine PROPOSÉE n'est pas le poste qui détecte : c'est d'où vient le
+   problème, parce que c'est la colonne « Code NC » du registre. Si tout ce
+   qui est vu au contrôle était codé CMS, le registre accuserait le poste de
+   contrôle de ce qu'il ne fait que voir (décision du 29/10). */
+const CATS = [
+  { code:'composant_manquant', nom:'Composant manquant',  origine:'APPRO' },
+  { code:'billes',             nom:'Billes de soudure',   origine:'CMS' },
+  { code:'boitier',            nom:'Boîtier / empreinte', origine:'COMPOSANT' },
+  { code:'sens',               nom:"À l'envers / sens",   origine:'CMS' },
+  { code:'soudure',            nom:'Soudure à reprendre', origine:'CMS' },
+  { code:'decale',             nom:'Décalé',              origine:'CMS' },
+  { code:'pont',               nom:'Pont de soudure',     origine:'CMS' },
+  { code:'autre',              nom:'Autre…',              origine:'CMS' }
+];
+const ORIGINES = [
+  { code:'CMS',       nom:'CMS' },
+  { code:'APPRO',     nom:'Appro / Réception' },
+  { code:'COMPOSANT', nom:'Composant' },
+  { code:'PROG',      nom:'Prog / Dossier' },
+  { code:'BOM',       nom:'BOM / Devis' },
+  { code:'PCB',       nom:'PCB' },
+  { code:'TRAD',      nom:'TRAD / Emballage' },
+  { code:'LAVAGE',    nom:'Lavage' }
+];
+/* « Laissé en l'état » est aussi fréquent que « repris au fer » : c'est une
+   décision, pas un oubli, donc c'est un bouton. Les quatre premières valent
+   rework ou attente et font rester la carte dans le bloc de l'écran 1. */
+const ACTIONS = ['Attente pièce','Reprise au fer','ERSA','Air chaud','Laissé en l\'état','NC pour cette prod','Repris au TRAD'];
+const TEMPS   = [['5 min',5],['10 min',10],['15 min',15],['30 min',30],['1 h',60],['2 h et +',120]];
+
+/* --- état ---------------------------------------------------------------- */
+let LISTE = null;   // réponse de l'action liste
+let FICHE = null;   // réponse de l'action fiche
+let DEFS  = [];     // défauts en cours de saisie
+let CONCL = 'rien_a_signaler';
+let RX    = 'aucun';
+let AOI   = [];
+let LOT_FINI = true;
+let QTE_CTRL = null;
+let SEQ = 0;
+/* Les charges de « ça se reproduit » sont rangées ici et l'attribut onclick ne
+   porte qu'un indice. Passer le JSON dans l'attribut cassait l'attribut HTML
+   dès que le texte contenait un guillemet : le bouton ne faisait plus rien,
+   silencieusement (vu à l'essai du 30/10). */
+let REPRO = [];
+
+/* =========================== ÉCRAN 1 ===================================== */
+/* garder = true : on ne balaie pas le message de confirmation qu'on vient
+   d'afficher (sinon « contrôle enregistré » disparaissait aussitôt — vu à
+   l'essai du 30/10). */
+async function charger(garder){
+  try {
+    if (!garder) alerte('');
+    LISTE = await appel(LIRE, { action: 'liste', auteur: qui() });
+    rendreListe();
+  } catch (e) {
+    document.getElementById('l-ctrl').innerHTML = '<div class="empty">Lecture impossible.</div>';
+    alerte("<b>La liste n'a pas pu être lue.</b> " + esc(e.message), 'rouge');
+  }
+}
+
+function rendreListe(){
+  const a = LISTE.a_controler || [], r = LISTE.en_attente || [], j = LISTE.du_jour || [];
+  document.getElementById('n-ctrl').textContent = a.length;
+  document.getElementById('n-rew').textContent  = r.length;
+  document.getElementById('n-jour').textContent = j.length;
+
+  document.getElementById('l-ctrl').innerHTML = a.length ? a.map((c, i) => {
+    const n = c.jours_avant_expedition;
+    const genre = (n !== null && n <= 1) ? 'rouge' : ((n !== null && n <= 4) ? 'ambre' : 'gris');
+    const coul  = genre === 'rouge' ? 'var(--rouge)' : (genre === 'ambre' ? 'var(--ambre)' : 'inherit');
+    const partiel = c.deja_controlees > 0 && c.qte_lot && c.deja_controlees < c.qte_lot;
+    const sous = [];
+    sous.push(c.deux_faces ? '2 faces' : '1 face');
+    if (c.prod_numero > 1) sous.push('prod n°' + c.prod_numero);
+    if (c.tache_nom) sous.push(c.tache_nom);
+    return '<div class="row ' + genre + '" onclick="ouvrir(' + i + ')">'
+      + '<span class="so">' + esc(c.so) + '</span>'
+      + '<span class="cli">' + esc(c.client || '') + '</span>'
+      + '<span class="crt"><b>' + esc(c.projet || '') + '</b><small>' + esc(sous.join(' · ')) + '</small></span>'
+      + (partiel
+          ? '<span class="pastille p-ambre">' + c.deja_controlees + '/' + c.qte_lot + ' — reprendre</span>'
+          : '')
+      + '<span class="qte">' + (c.qte_lot ? '×' + c.qte_lot : '') + '</span>'
+      + '<span class="exp"><b style="color:' + coul + '">' + esc(quand(n)) + '</b>'
+      + '<small>' + (c.expedition ? 'exp. ' + jj(c.expedition) : '') + '</small></span>'
+      + '</div>';
+  }).join('') : '<div class="empty">Rien à contrôler : aucune opération CONTRÔLE CMS ouverte dont le soudage soit coché.</div>';
+
+  document.getElementById('l-rew').innerHTML = r.length ? r.map(x =>
+      '<div class="row ambre nocli">'
+    + '<span class="so">' + esc(x.so_texte || '') + '</span>'
+    + '<span class="cli">' + esc(x.client || '') + '</span>'
+    + '<span class="crt"><b>' + esc(x.ref_carte || '') + '</b><small>'
+    +   esc([String(x.conclusion || '').replace(/_/g, ' '), x.repere ? 'repère ' + x.repere : '', x.texte || ''].filter(Boolean).join(' — ').slice(0, 130))
+    + '</small></span>'
+    + '<span class="pastille p-ambre">' + esc(x.action || '') + '</span>'
+    + '<span class="exp"><button class="repro" onclick="solder(' + Number(x.id) + ',this)">c\'est soldé</button></span>'
+    + '</div>').join('') : '<div class="empty">Rien en attente.</div>';
+
+  document.getElementById('l-jour').innerHTML = j.length ? j.map(x => {
+      const lib = { rien_a_signaler:'rien à signaler', retouches_sans_signalement:'quelques retouches', defauts_signales:'défauts signalés' };
+      return '<div class="row gris nocli">'
+      + '<span class="so">' + esc(x.so_texte || '') + '</span>'
+      + '<span class="cli">' + esc(x.client || '') + '</span>'
+      + '<span class="crt"><b>' + esc(x.ref_carte || '') + '</b><small>'
+      +   esc(lib[String(x.conclusion)] || String(x.conclusion || '')) + (x.qte ? ' · ' + x.qte + ' carte' + (x.qte > 1 ? 's' : '') : '')
+      + '</small></span>'
+      + (x.odoo_coche_le ? '<span class="pastille p-vert">tâche Odoo cochée</span>' : '<span class="pastille p-ambre">lot non fini</span>')
+      + '<span class="exp"><small>' + esc(String(x.clos_le || '').slice(11, 16)) + '</small></span>'
+      + '</div>';
+  }).join('') : '<div class="empty">Rien encore aujourd\'hui.</div>';
+
+  const m = LISTE.mesure || {};
+  document.getElementById('mesure').textContent =
+    (m.so_ouverts || 0) + ' commandes ouvertes · ' + (m.operations_lues || 0) + ' opérations lues · '
+    + (m.productions_retenues || 0) + ' retenue' + ((m.productions_retenues || 0) > 1 ? 's' : '');
+}
+
+async function solder(id, bouton){
+  bouton.disabled = true; bouton.textContent = '…';
+  try {
+    await appel(ECRIRE, { action: 'solder', anomalie_id: id, auteur: qui() });
+    await charger();
+  } catch (e) {
+    bouton.disabled = false; bouton.textContent = "c'est soldé";
+    alerte('<b>Pas pu solder.</b> ' + esc(e.message), 'rouge');
+  }
+}
+
+function go(i){
+  document.getElementById('s0').style.display = i === 0 ? '' : 'none';
+  document.getElementById('s1').style.display = i === 1 ? '' : 'none';
+  document.getElementById('t0').classList.toggle('active', i === 0);
+  document.getElementById('t1').classList.toggle('active', i === 1);
+  window.scrollTo(0, 0);
+}
+
+/* =========================== ÉCRAN 2 ===================================== */
+async function ouvrir(i){
+  if (!qui()) { changerQui(); if (!qui()) return; }
+  const c = (LISTE.a_controler || [])[i];
+  if (!c) return;
+  document.getElementById('t1').disabled = false;
+  document.getElementById('s1').innerHTML = '<section><div class="empty"><span class="spin"></span> lecture du dossier…</div></section>';
+  go(1);
+  try {
+    FICHE = await appel(LIRE, { action: 'fiche', tache_id: c.tache_id, projet_id: c.projet_id, auteur: qui() });
+    FICHE.carte = c;
+    DEFS = []; CONCL = 'rien_a_signaler'; RX = 'aucun'; AOI = [];
+    LOT_FINI = true;
+    QTE_CTRL = c.qte_lot && c.deja_controlees ? Math.max(0, c.qte_lot - c.deja_controlees) : c.qte_lot;
+    rendreFiche();
+  } catch (e) {
+    document.getElementById('s1').innerHTML = '<section><div class="empty">Dossier illisible.</div></section>';
+    alerte('<b>Le dossier n\'a pas pu être lu.</b> ' + esc(e.message), 'rouge');
+  }
+}
+
+function rendreFiche(){
+  const c = FICHE.carte;
+  const histo = (FICHE.productions_anterieures || []).filter(h => h.a_du_contenu);
+  const anos  = FICHE.anomalies_deja_vues || [];
+  const reste = (c.qte_lot && c.deja_controlees) ? (c.qte_lot - c.deja_controlees) : c.qte_lot;
+
+  let h = '<section><div class="body">';
+
+  /* en-tête */
+  h += '<div class="fiche-h"><div class="t">'
+     + '<div class="so">' + esc(c.so) + '</div>'
+     + '<h1>' + esc(c.projet || '') + '</h1>'
+     + '<div class="sub">' + esc([c.client, c.deux_faces ? '2 faces' : '1 face',
+         c.expedition ? 'expédition ' + jj(c.expedition) : null].filter(Boolean).join(' · ')) + '</div>'
+     + '</div><div class="meta">'
+     + '<div><div class="k">Cartes</div><div class="v">' + (c.qte_lot || '—') + '</div></div>'
+     + (c.deja_controlees ? '<div><div class="k">Déjà faites</div><div class="v" style="color:var(--ambre)">' + c.deja_controlees + '</div></div>' : '')
+     + '<div><div class="k">Prod n°</div><div class="v">' + (FICHE.prod_numero || 1) + '</div></div>'
+     + '</div></div>';
+
+  /* Ce qui est écrit sur l'opération dans Odoo. Le champ mélange deux choses :
+     la consigne des méthodes ET les anciennes notes du poste entre crochets.
+     On ne prétend donc pas que c'est « écrit par les méthodes ». */
+  if (FICHE.consignes) {
+    h += '<div class="sect"><label>Ce qui est écrit sur cette opération dans Odoo</label>'
+       + '<div class="consigne">' + esc(FICHE.consignes) + '</div></div>';
+  }
+
+  /* déroulé de la production : où on en est */
+  if ((FICHE.ma_production || []).length) {
+    h += '<div class="sect"><label>Où en est cette production</label><div class="deroule">'
+       + FICHE.ma_production.map(o =>
+           '<span class="op' + (Number(o.id) === Number(c.tache_id) ? ' moi' : (o.faite ? ' faite' : '')) + '">'
+           + esc(o.nom) + '</span>').join('')
+       + '</div></div>';
+  }
+
+  /* déjà vu sur cette carte — n'apparaît que s'il y a quelque chose.
+     73 % des cartes n'ont aucune production antérieure (mesure du 29/10). */
+  REPRO = [];
+  if (histo.length || anos.length) {
+    h += '<div class="sect"><div class="past">'
+       + '<div class="ph"><i>&#8634;</i><b>Déjà vu sur cette carte</b>'
+       + '<span class="pastille p-pp" style="margin-left:auto">' + (histo.length + anos.length) + ' élément' + ((histo.length + anos.length) > 1 ? 's' : '') + '</span></div>'
+       + '<div class="pb">';
+    anos.forEach(a => {
+      REPRO.push({ categorie: a.categorie || null, origine: a.origine || null, repere: a.repere || '', mpn: a.mpn || '', texte: a.texte || '' });
+      h += '<div class="it"><div class="d">' + esc(String(a.cree_le || '').slice(0,10)) + ' · ' + esc(a.so_texte || '') + (a.f07_ligne ? ' · NC ' + a.f07_ligne : '') + '</div>'
+         + '<div class="x">' + esc([String(a.categorie || '').replace(/_/g,' '), a.repere ? 'repère ' + a.repere : '', a.mpn, a.texte].filter(Boolean).join(' — ')) + '</div>'
+         + (a.cause_non_corrigee ? '<span class="pastille p-rouge">cause non corrigée</span>' : '')
+         + '<button class="repro" onclick="reproduit(' + (REPRO.length - 1) + ')">&#8627; ça se reproduit</button>'
+         + '</div>';
+    });
+    histo.forEach(hh => {
+      REPRO.push({ texte: hh.consigne || '' });
+      h += '<div class="it"><div class="d">' + esc(jj(hh.quand)) + ' · ' + esc(hh.etape) + ' · ' + esc(hh.tache_nom) + '</div>'
+         + '<div class="x">' + esc(hh.consigne) + '</div>'
+         + '<button class="repro" onclick="reproduit(' + (REPRO.length - 1) + ')">&#8627; ça se reproduit</button>'
+         + '</div>';
+    });
+    h += '</div></div>'
+       + '<p class="ex">Lu dans les productions précédentes de la même carte. « Ça se reproduit » recopie la ligne '
+       + 'dans le contrôle du jour, à l\'endroit où elle se lit.</p></div>';
+  }
+
+  /* rayon X et AOI */
+  h += '<div class="sect"><label>Rayon X</label><div class="pills" style="margin-bottom:20px" id="rxp">'
+     + [['aucun','Pas de RX'],['interne','RX interne'],['cliches_client','RX + clichés client']]
+         .map(o => '<button class="pb-btn' + (RX === o[0] ? ' on' : '') + '" onclick="setRx(\'' + o[0] + '\',this)">' + o[1] + '</button>').join('')
+     + '</div>'
+     + '<label>AOI — seulement si elle n\'a pas pu être complète</label><div class="pills" id="aoip">'
+     + [['une_face','AOI sur 1 face seulement'],['pas_aoi','Pas d\'AOI']]
+         .map(o => '<button class="pb-btn" onclick="setAoi(\'' + o[0] + '\',this)">' + o[1] + '</button>').join('')
+     + '</div>'
+     + '<p class="ex">Rien de coché = AOI faite normalement, et on ne l\'écrit pas. Ces deux boutons ne servent '
+     + 'qu\'à dire <b>pourquoi la couverture a été réduite</b> — c\'est ce qui expliquera, six mois plus tard, '
+     + 'qu\'un défaut ait pu passer.</p></div>';
+
+  /* conclusion */
+  h += '<div class="ccl"><label>Conclusion du contrôle</label><div class="pills" id="cpills">'
+     + [['rien_a_signaler','Rien à signaler'],['retouches_sans_signalement','Quelques retouches, rien de particulier']]
+         .map(o => '<button class="pb-btn' + (CONCL === o[0] ? ' on' : '') + '" onclick="setConcl(\'' + o[0] + '\',this)">' + o[1] + '</button>').join('')
+     + '</div><div class="auto" id="cauto"></div>'
+     + '<p class="ex">« Clore » ne veut pas dire « rien vu » : un contrôle se termine toujours. Ce qui change, '
+     + 'c\'est sa conclusion — et « quelques retouches sans signalement » est un cas réel, qui se cachait '
+     + 'jusqu\'ici dans le « ctrl ok ».</p></div>';
+
+  /* le lot */
+  h += '<div class="sect" id="lotsect" style="margin-top:18px">'
+     + '<div class="pills"><button class="btn-s" id="lotbtn" onclick="basculerLot()">Je n\'ai pas fini le lot</button></div>'
+     + '<div id="lotdet" style="display:none;margin-top:14px"><div class="grid2" style="margin-bottom:0">'
+     + '<div class="fld"><label>Combien de cartes contrôlées</label>'
+     + '<input type="text" id="qtectrl" value="" placeholder="' + (reste || '') + '" oninput="majResume()"></div>'
+     + '<div class="fld" style="display:flex;align-items:flex-end"><p class="ex" style="margin:0">'
+     + 'Sur ' + (c.qte_lot || '?') + ' au lot' + (c.deja_controlees ? ', dont ' + c.deja_controlees + ' déjà contrôlées' : '')
+     + '. Tant que le compte n\'y est pas, la tâche Odoo n\'est pas cochée et la carte reste en tête de liste.'
+     + '</p></div></div></div></div>';
+
+  /* actions */
+  h += '<div class="acts">'
+     + '<button class="big" id="clore" onclick="clore()"><i>&#10003;</i> Clore le contrôle</button>'
+     + '<button class="btn-s" onclick="ajouterDefaut()"><i>&#9888;</i> Signaler un défaut</button>'
+     + '<span class="sig" id="resume"></span>'
+     + '</div>';
+
+  h += '</div></section><div id="defs"></div>';
+  document.getElementById('s1').innerHTML = h;
+  rendreDefs();
+}
+
+function setRx(v, b){ RX = v; [...b.parentNode.children].forEach(x => x.classList.remove('on')); b.classList.add('on'); }
+function setAoi(v, b){
+  b.classList.toggle('on');
+  AOI = [...document.getElementById('aoip').children].filter(x => x.classList.contains('on'))
+        .map(x => x.getAttribute('onclick').match(/'([^']+)'/)[1]);
+}
+function setConcl(v, b){ CONCL = v; [...b.parentNode.children].forEach(x => x.classList.remove('on')); b.classList.add('on'); }
+
+function basculerLot(){
+  LOT_FINI = !LOT_FINI;
+  const b = document.getElementById('lotbtn');
+  b.classList.toggle('on', !LOT_FINI);
+  b.textContent = LOT_FINI ? "Je n'ai pas fini le lot" : "Finalement j'ai fini le lot";
+  document.getElementById('lotdet').style.display = LOT_FINI ? 'none' : '';
+  majResume();
+}
+
+function majResume(){
+  const c = FICHE.carte;
+  const saisi = (document.getElementById('qtectrl') || {}).value;
+  const n = saisi ? Number(saisi) : null;
+  const cumul = (c.deja_controlees || 0) + (LOT_FINI ? (c.qte_lot - (c.deja_controlees || 0)) : (n || 0));
+  const fini = c.qte_lot && cumul >= c.qte_lot;
+  document.getElementById('resume').innerHTML =
+    'signé ' + esc(qui()) + ' · ' + (LOT_FINI
+      ? 'lot complet — la tâche Odoo sera cochée'
+      : (n ? cumul + '/' + c.qte_lot + (fini ? ' — la tâche Odoo sera cochée' : ' — tâche Odoo laissée ouverte')
+           : 'indiquez combien de cartes'));
+}
+
+/* --- défauts -------------------------------------------------------------- */
+function ajouterDefaut(pre){
+  SEQ += 1;
+  DEFS.push(Object.assign({
+    id: SEQ, categorie: null, origine: null, repere: '', mpn: '',
+    toutes: true, qte: '', series: '', action: null, temps: null, texte: '',
+    photo: false, methodes: false, client: false, cause: false
+  }, pre || {}));
+  CONCL = 'defauts_signales';
+  rendreDefs();
+  setTimeout(() => { const e = document.getElementById('def-' + SEQ); if (e) e.scrollIntoView({ behavior:'smooth', block:'start' }); }, 40);
+}
+function reproduit(i){
+  const p = REPRO[i];
+  if (!p) return;
+  ajouterDefaut({ categorie: p.categorie || null, origine: p.origine || null,
+                  repere: p.repere || '', mpn: p.mpn || '', texte: p.texte || '' });
+}
+function retirerDefaut(id){ DEFS = DEFS.filter(d => d.id !== id); if (!DEFS.length) CONCL = 'rien_a_signaler'; rendreDefs(); }
+function maj(id, champ, val){ const d = DEFS.find(x => x.id === id); if (d) { d[champ] = val; rendreDefs(); } }
+function majTexte(id, champ, val){ const d = DEFS.find(x => x.id === id); if (d) { d[champ] = val; rendreF07(id); } }
+function bascule(id, champ){ const d = DEFS.find(x => x.id === id); if (d) { d[champ] = !d[champ]; rendreDefs(); } }
+
+function rendreDefs(){
+  /* la conclusion se déduit des défauts : si on en a déclaré, c'est « défauts signalés » */
+  const cp = document.getElementById('cpills'), ca = document.getElementById('cauto');
+  if (cp && ca) {
+    if (DEFS.length) {
+      [...cp.children].forEach(x => x.classList.remove('on'));
+      CONCL = 'defauts_signales';
+      ca.style.display = 'block';
+      ca.innerHTML = '<span class="pastille p-ambre">' + DEFS.length + ' défaut' + (DEFS.length > 1 ? 's' : '') + ' signalé' + (DEFS.length > 1 ? 's' : '') + '</span>'
+        + '<span style="color:var(--text2);margin-left:7px">la conclusion se déduit toute seule des défauts déclarés</span>';
+    } else {
+      ca.style.display = 'none';
+      [...cp.children].forEach((x, i) => x.classList.toggle('on', (i === 0 && CONCL === 'rien_a_signaler') || (i === 1 && CONCL === 'retouches_sans_signalement')));
+    }
+  }
+  const z = document.getElementById('defs');
+  if (!z) return;
+  z.innerHTML = DEFS.map((d, i) => blocDefaut(d, i)).join('')
+    + (DEFS.length
+        ? '<button class="add" onclick="ajouterDefaut()">+ Un autre défaut sur cette carte</button>'
+          + '<div class="acts" style="border-top:0;margin-top:18px">'
+          + '<button class="big o" onclick="clore()"><i>&#9635;</i> Clore le contrôle</button>'
+          + '<span class="sig">le détail reste interne — jamais sur le rapport client</span></div>'
+        : '');
+  majResume();
+}
+
+function blocDefaut(d, i){
+  const c = FICHE.carte;
+  let h = '<div class="def" id="def-' + d.id + '">'
+    + '<div class="def-h"><span class="n">Défaut ' + (i + 1) + '</span>'
+    + '<button onclick="retirerDefaut(' + d.id + ')">&#10005;</button></div>';
+
+  h += '<div class="sect"><label>Quoi</label><div class="pills">'
+     + CATS.map(k => '<button class="pb-btn' + (d.categorie === k.code ? ' on' : '') + '" onclick="choisirCat(' + d.id + ',\'' + k.code + '\')">' + k.nom + '</button>').join('')
+     + '</div></div>';
+
+  h += '<div class="sect"><label>Ça vient d\'où ? <span style="text-transform:none;letter-spacing:0;font-style:italic">— proposé d\'après le défaut, corrigeable</span></label><div class="pills">'
+     + ORIGINES.map(o => '<button class="pb-btn' + (d.origine === o.code ? ' on' : '') + '" onclick="maj(' + d.id + ',\'origine\',\'' + o.code + '\')">' + o.nom + '</button>').join('')
+     + '</div><p class="ex">C\'est la colonne « Code NC » du F07, et c\'est <b>l\'origine du problème, pas l\'endroit '
+     + 'où on l\'a vu</b> : « composant manquant » est presque toujours de l\'appro.</p></div>';
+
+  h += '<div class="grid2">'
+     + '<div class="fld"><label>Repère(s)</label><input type="text" value="' + esc(d.repere) + '" placeholder="Q1, C45, U12…" oninput="majTexte(' + d.id + ',\'repere\',this.value)"></div>'
+     + '<div class="fld"><label>Référence</label><input type="text" value="' + esc(d.mpn) + '" placeholder="MPN ou IPN" oninput="majTexte(' + d.id + ',\'mpn\',this.value)"></div>'
+     + '</div>';
+
+  h += '<div class="sect"><label>Combien</label><div class="pills">'
+     + '<button class="pb-btn' + (d.toutes ? ' on' : '') + '" onclick="maj(' + d.id + ',\'toutes\',true)">Toutes les cartes</button>'
+     + '<button class="pb-btn' + (!d.toutes ? ' on' : '') + '" onclick="maj(' + d.id + ',\'toutes\',false)">Quelques-unes &#8594;</button>'
+     + '</div>'
+     + (d.toutes ? '' :
+         '<div style="margin-top:14px"><div class="grid2" style="margin-bottom:0">'
+       + '<div class="fld"><label>Combien exactement</label><input type="text" value="' + esc(d.qte) + '" placeholder="4" oninput="majTexte(' + d.id + ',\'qte\',this.value)"></div>'
+       + '<div class="fld"><label>N° de série concernés</label><input type="text" value="' + esc(d.series) + '" placeholder="7, 11, 18 à 20" oninput="majTexte(' + d.id + ',\'series\',this.value)"></div>'
+       + '</div><p class="ex">Le n° de série, c\'est ce qu\'un client demande le jour où il remonte UNE carte précise.</p></div>')
+     + '</div>';
+
+  h += '<div class="sect"><label>Et donc</label><div class="pills">'
+     + ACTIONS.map(a => '<button class="pb-btn' + (d.action === a ? ' on' : '') + '" onclick="maj(' + d.id + ',\'action\',' + JSON.stringify(a).replace(/"/g, '&quot;') + ')">' + esc(a) + '</button>').join('')
+     + '</div></div>';
+
+  h += '<div class="sect"><label>Temps passé sur ce défaut</label><div class="pills">'
+     + TEMPS.map(t => '<button class="pb-btn' + (d.temps === t[1] ? ' on' : '') + '" onclick="maj(' + d.id + ',\'temps\',' + t[1] + ')">' + t[0] + '</button>').join('')
+     + '</div><p class="ex">Demandé seulement sur un défaut, jamais sur le contrôle : c\'est la colonne « Temps passé » du F07.</p></div>';
+
+  h += '<div class="fld"><label>Ce que je veux dire en plus — libre, et c\'est ce qui sert le plus à la refab</label>'
+     + '<textarea oninput="majTexte(' + d.id + ',\'texte\',this.value)">' + esc(d.texte) + '</textarea>'
+     + '<p class="ex">Votre texte n\'est pas remplacé. Il est juste rangé à côté d\'une étiquette, pour qu\'on puisse compter ET retrouver.</p></div>';
+
+  h += '<div class="sect" style="margin-top:18px;margin-bottom:0"><div class="pills">'
+     + [['photo','Photo'],['methodes','Demander aux méthodes'],['client','Demander au client'],
+        ['cause','Cause non corrigée &#8212; à traiter avant la prochaine prod']]
+         .map(f => '<button class="pb-btn' + (d[f[0]] ? ' on' : '') + '" onclick="bascule(' + d.id + ',\'' + f[0] + '\')">' + f[1] + '</button>').join('')
+     + '</div><p class="ex">Le dernier est le plus utile des quatre : le défaut est soldé pour cette prod, mais la '
+     + 'cause reste (programme My faux, référence client erronée…). Sans lui, la même reprise se refait à chaque production.</p></div>';
+
+  h += '<div class="f07" id="f07-' + d.id + '">' + tableF07(d) + '</div>';
+  h += '<p class="ex" style="margin-left:3px">Le registre reçoit TOUT (décision du 29/10) : on ne peut pas analyser '
+     + 'ce qu\'on n\'a pas vu. Fred trie ensuite ce qui mérite une analyse de cause, et la machine n\'écrit jamais '
+     + 'dans ses trois colonnes.</p>';
+
+  return h + '</div>';
+}
+
+function choisirCat(id, code){
+  const d = DEFS.find(x => x.id === id); if (!d) return;
+  const k = CATS.find(x => x.code === code);
+  d.categorie = code;
+  d.origine = k ? k.origine : 'CMS';   /* proposée, corrigeable juste en dessous */
+  rendreDefs();
+}
+function rendreF07(id){
+  const d = DEFS.find(x => x.id === id); if (!d) return;
+  const e = document.getElementById('f07-' + d.id);
+  if (e) e.innerHTML = tableF07(d);
+}
+function tableF07(d){
+  const c = FICHE.carte;
+  const o = ORIGINES.find(x => x.code === d.origine);
+  const k = CATS.find(x => x.code === d.categorie);
+  const q = d.toutes ? (c.qte_lot || '?') : (d.qte || '?');
+  return '<div class="h"><span>Ce qui part au registre F07 &#8212; onglet « NC internes 2026 »</span>'
+    + '<span class="nc">n° attribué à l\'écriture</span></div><table>'
+    + '<tr><td class="k">Code NC</td><td class="v">' + esc(o ? o.nom : '—')
+    +   ' &nbsp;<span style="font-family:var(--sans);color:var(--text3);font-style:italic">— l\'origine, pas le poste</span></td></tr>'
+    + '<tr><td class="k">Date ouverture</td><td class="v">' + new Date().toLocaleDateString('fr-FR') + '</td></tr>'
+    + '<tr><td class="k">N° SO et réf. projet</td><td class="v">' + esc(c.so) + ' &nbsp;·&nbsp; ' + esc(c.projet || '') + '</td></tr>'
+    + '<tr><td class="k">Description du problème</td><td class="v">'
+    +   esc([k ? k.nom : '', d.repere ? '— ' + d.repere : '', d.mpn ? '(' + d.mpn + ')' : ''].filter(Boolean).join(' '))
+    +   (d.texte ? '\n' + esc(d.texte) : '') + '</td></tr>'
+    + '<tr><td class="k">Action</td><td class="v">' + esc(d.action || '—') + '</td></tr>'
+    + '<tr><td class="k">Qté / Qté totale</td><td class="v">' + esc(q) + ' / ' + (c.qte_lot || '?') + '</td></tr>'
+    + '<tr><td class="k">Suivi par / fait par</td><td class="v">' + esc(qui()) + '</td></tr>'
+    + '<tr><td class="k">Temps passé (min)</td><td class="v">' + (d.temps || '—') + '</td></tr>'
+    + '<tr><td class="k">Traitée / Clôturée</td><td class="v">FALSE</td></tr>'
+    + '<tr class="fred"><td class="k">Analyse de la cause</td><td class="v">à Fred</td></tr>'
+    + '<tr class="fred"><td class="k">Objet plan d\'action ?</td><td class="v">à Fred</td></tr>'
+    + '<tr class="fred"><td class="k">Date limite</td><td class="v">à Fred</td></tr>'
+    + '</table>';
+}
+
+/* --- clore ---------------------------------------------------------------- */
+async function clore(){
+  const c = FICHE.carte;
+  const manque = [];
+  DEFS.forEach((d, i) => {
+    if (!d.categorie) manque.push('défaut ' + (i + 1) + ' : il manque « quoi »');
+    if (!d.action)    manque.push('défaut ' + (i + 1) + ' : il manque « et donc »');
+    if (!d.toutes && !d.qte) manque.push('défaut ' + (i + 1) + ' : il manque le nombre de cartes');
+  });
+  let qte = null;
+  if (!LOT_FINI) {
+    qte = Number((document.getElementById('qtectrl') || {}).value);
+    if (!qte || qte < 1) manque.push('le nombre de cartes contrôlées');
+  }
+  if (manque.length) { alerte('<b>Il manque quelque chose avant de clore :</b><br>' + manque.map(esc).join('<br>'), 'rouge'); window.scrollTo(0,0); return; }
+
+  const boutons = document.querySelectorAll('.big');
+  boutons.forEach(b => { b.disabled = true; });
+  alerte('<span class="spin"></span> enregistrement…');
+
+  const charge = {
+    action: 'enregistrer',
+    auteur: qui(),
+    app_version: APP_VERSION,
+    lot_termine: LOT_FINI,
+    qte_controlee: LOT_FINI ? (c.qte_lot ? c.qte_lot - (c.deja_controlees || 0) : null) : qte,
+    controle: {
+      so_texte: c.so,
+      odoo_task_id: c.tache_id,
+      odoo_project_id: c.projet_id,
+      client: c.client,
+      ref_carte: c.projet,
+      libelle_carte: c.tache_nom,
+      qte_lot: c.qte_lot,
+      date_expedition: c.expedition,
+      rx: RX,
+      aoi_exceptions: AOI,
+      aoi_motif: null,
+      conclusion: CONCL,
+      commentaire: null
+    },
+    anomalies: DEFS.map(d => ({
+      categorie: d.categorie,
+      origine: d.origine || 'CMS',
+      repere: d.repere || null,
+      mpn: d.mpn || null,
+      qte: d.toutes ? (c.qte_lot || null) : Number(d.qte),
+      numeros_serie: d.toutes ? null : (d.series || null),
+      action: d.action,
+      temps_min: d.temps || null,
+      texte: d.texte || null,
+      photo_a_faire: d.photo,
+      avis_methodes: d.methodes,
+      question_client: d.client,
+      cause_non_corrigee: d.cause
+    }))
+  };
+
+  try {
+    const r = await appel(ECRIRE, charge);
+    let msg = '<b>Contrôle enregistré.</b> '
+      + (r.anomalies_creees ? r.anomalies_creees + ' défaut' + (r.anomalies_creees > 1 ? 's' : '') + ' au registre F07. ' : '')
+      + (r.odoo_cochee ? 'Tâche Odoo cochée (' + r.cumul_controlees + '/' + r.qte_lot + ').'
+                       : 'Tâche Odoo laissée ouverte (' + r.cumul_controlees + '/' + r.qte_lot + ').');
+    if (r.rattachement_motif) msg += '<br><b>À noter :</b> ' + esc(r.rattachement_motif) + ' — le contrôle est bien enregistré, mais il n\'est pas relié au fil de vie de la carte.';
+    if (r.odoo_motif) msg += '<br><b>Attention :</b> ' + esc(r.odoo_motif);
+    document.getElementById('t1').disabled = true;
+    go(0);
+    await charger(true);
+    alerte(msg, r.rattachement_motif || r.odoo_motif ? '' : 'vert');
+  } catch (e) {
+    boutons.forEach(b => { b.disabled = false; });
+    alerte('<b>Rien n\'a été enregistré.</b> ' + esc(e.message), 'rouge');
+    window.scrollTo(0, 0);
+  }
+}
+
+/* --- départ --------------------------------------------------------------- */
+majQui();
+charger();
+</script>
+<script src="../shared/retour-accueil.js" defer></script>
+</body>
+</html>
