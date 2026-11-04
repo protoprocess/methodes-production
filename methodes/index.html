@@ -2064,7 +2064,7 @@
 <script>
 /* ---------- version ---------- */
 // Convention : X = nouvelle fonctionnalite, Y = correctif / reglage.
-const APP_VERSION = "3.15"; // v3.15 : format client écarté quand il sort des coordonnées X/Y toutes à zéro (colonnes absentes du fichier) → bascule sur la détection automatique — v3.14 : rapport Cadence Allegro « Placed Component Report » (REFDES/SYM_X/SYM_Y) lu — v3.13 : rapport « Pick and Place » eCADSTAR (SEFRAM) lu nativement, colonnes comptées depuis la fin — v3.12 : vrai en-tête choisi par score (cartouche Altium "PCB Reference") — v3.10 : en-tête "X Pos"/"Y Pos" coupé par tabulation + alerte fichier PnP mal lu
+const APP_VERSION = "3.16"; // v3.16 : colonnes repère et rotation devinées par le contenu quand les noms d'en-tête sont inutilisables (en-tête sur 2 lignes à cellule fusionnée, ligne de séparation ++++) — v3.15 : format client écarté quand il sort des coordonnées X/Y toutes à zéro (colonnes absentes du fichier) → bascule sur la détection automatique — v3.14 : rapport Cadence Allegro « Placed Component Report » (REFDES/SYM_X/SYM_Y) lu — v3.13 : rapport « Pick and Place » eCADSTAR (SEFRAM) lu nativement, colonnes comptées depuis la fin — v3.12 : vrai en-tête choisi par score (cartouche Altium "PCB Reference") — v3.10 : en-tête "X Pos"/"Y Pos" coupé par tabulation + alerte fichier PnP mal lu
 const APP_DATE = "06/10/2026";
 document.title = `MYCenter Prep — Automatisation BOM + PnP — v${APP_VERSION} — ${APP_DATE}`;
 document.getElementById('hdr-version').textContent = `v${APP_VERSION} — ${APP_DATE}`;
@@ -2633,7 +2633,7 @@ function parseCMP(text, filename) {
       if (headerIdx < 0) {
         for (let i=0; i<Math.min(40,lines.length); i++) {
           const line=lines[i].trim();
-          if (!line || /^[=\-]{4,}/.test(line)) continue;
+          if (!line || /^[=\-+*_~#]{4,}/.test(line)) continue;
           if (!HDR.test(line)) continue;
           const s=detectSep(lines[i]);
           if (splitLine(lines[i],s).length < 3) continue;
@@ -2655,7 +2655,13 @@ function parseCMP(text, filename) {
         for (let i=1; i<Math.min(50,lines.length); i++) {
           const s=detectSep(lines[i]);
           if (looksLikeData(splitLine(lines[i],s))) {
-            headerIdx=i-1; sep=s; break;
+            headerIdx=i-1; sep=s;
+            // v3.16 — La ligne juste avant les données peut être une ligne de
+            // séparation (++++, ====, ****). On remonte jusqu'à une vraie ligne
+            // de noms de colonnes, sinon on reste sur place et le contenu
+            // décidera (cas P0742 : « ++++ » entre l'en-tête et les données).
+            while (headerIdx > 0 && /^[=\-+*_~#\s,;\t]{4,}$/.test(lines[headerIdx].trim())) headerIdx--;
+            break;
           }
         }
       }
@@ -2793,8 +2799,49 @@ function parseCMP(text, filename) {
             if (/^(0|90|180|270|-90|-180|-270)$/.test(v)) rotScore[ci]++;
           });
         });
-        // Exclure colonnes déjà assignées
-        const used = new Set([iRef,iFaceEff,iRot].filter(x=>x>=0));
+        // v3.16 — Colonne REPÈRE devinée par le contenu : les valeurs sont des
+        // repères (lettres puis chiffres : C0001, R12, TP140) sur toutes les
+        // lignes, jamais un nombre, jamais TOP/BOTTOM, jamais un boîtier seul.
+        let gRef = -1;
+        if (iRef < 0) {
+          const refScore = Array(n).fill(0);
+          samples.forEach(r => r.forEach((v,ci) => {
+            const t = (v||'').trim();
+            if (/^[A-Za-z][A-Za-z0-9_.\-+]*\d[A-Za-z0-9_.\-+]*$/.test(t)
+                && !/^-?\d/.test(t)
+                && !/^(top|bot|bottom|toplayer|bottomlayer)$/i.test(t)) refScore[ci]++;
+          }));
+          // À égalité, la colonne la plus à gauche : le repère ouvre la ligne
+          // dans tous les formats PnP rencontrés.
+          let best = 0;
+          refScore.forEach((s,i) => { if (s > best) { best = s; gRef = i; } });
+          if (best < samples.length) gRef = -1; // doit tenir sur TOUTES les lignes
+        }
+
+        // v3.16 — Colonne ROTATION devinée par le contenu : des angles, c'est-à-dire
+        // uniquement des multiples de 90 (0 / 90 / 180 / 270, décimales admises)
+        // et peu de valeurs différentes. Une colonne de coordonnées n'a jamais
+        // ce profil sur une carte entière. Cas P0742 : « 270.000 ».
+        let gRot = -1;
+        if (iRot < 0 && samples.length >= 3) {
+          let moinsDeValeurs = 99;
+          for (let ci=0; ci<n; ci++) {
+            // Jamais une colonne déjà identifiée par son nom : une coordonnée
+            // peut tomber par hasard sur des multiples de 90 sur un échantillon.
+            if (ci === iRef || ci === gRef || ci === iFaceEff || ci === iX || ci === iY) continue;
+            const vals = samples.map(r => (r[ci]||'').trim());
+            if (!vals.every(v => /^-?\d+(\.\d+)?$/.test(v))) continue;
+            if (!vals.every(v => Math.abs(parseFloat(v)) % 90 === 0 && Math.abs(parseFloat(v)) <= 360)) continue;
+            const distinctes = new Set(vals.map(v => parseFloat(v))).size;
+            if (distinctes > 8) continue;           // une coordonnée varie bien plus
+            // Un angle est la colonne la plus répétitive de celles qui restent
+            if (distinctes < moinsDeValeurs) { moinsDeValeurs = distinctes; gRot = ci; }
+          }
+        }
+
+        // Exclure colonnes déjà assignées — y compris la rotation devinée, sinon
+        // elle serait prise pour une coordonnée (ses valeurs sont décimales).
+        const used = new Set([iRef,gRef,iFaceEff,iRot,gRot].filter(x=>x>=0));
         const xyCands = decScore.map((s,i)=>({i,s}))
           .filter(x=>!used.has(x.i)&&x.s>0).sort((a,b)=>b.s-a.s);
         const faceCand = faceScore.map((s,i)=>({i,s}))
@@ -2803,26 +2850,31 @@ function parseCMP(text, filename) {
           gx: iX<0 ? (xyCands[0]?.i??-1) : iX,
           gy: iY<0 ? (xyCands[1]?.i??-1) : iY,
           gf: iFaceEff<0 ? (faceCand[0]?.i??-1) : iFaceEff,
+          gRef, gRot,
         };
       }
 
-      const { gx, gy, gf } = guessByContent();
+      const { gx, gy, gf, gRef, gRot } = guessByContent();
       const effX    = iX>=0    ? iX    : gx;
       const effY    = iY>=0    ? iY    : gy;
       const effFace = iFaceEff>=0 ? iFaceEff : gf;
+      const effRef  = iRef>=0  ? iRef  : (gRef ?? -1);
+      const effRot  = iRot>=0  ? iRot  : (gRot ?? -1);
+      if (iRef<0 && effRef>=0) console.info('Colonne repère devinée par le contenu : index ' + effRef);
+      if (iRot<0 && effRot>=0) console.info('Colonne rotation devinée par le contenu : index ' + effRot);
 
       for (let i=headerIdx+1; i<lines.length; i++) {
         if (!lines[i].trim()) continue;
         const cols = fixedWidth ? parseFixedWidth(lines[headerIdx], lines[i]) : splitLine(lines[i],sep);
         if (!looksLikeData(cols)) continue;
-        const ref=iRef>=0?cols[iRef]:'';
+        const ref=effRef>=0?cols[effRef]:'';
         if (!ref) continue;
         function stripUnit(v) { return parseFloat((v||'').replace(',','.').replace(/[a-zA-Z]+$/,''))||0; }
         rows.push({
           ref,
           x:    effX>=0 ? stripUnit(cols[effX]) : 0,
           y:    effY>=0 ? stripUnit(cols[effY]) : 0,
-          rot:  iRot>=0 ? (parseInt(cols[iRot]) ||0) : 0,
+          rot:  effRot>=0 ? (parseInt(cols[effRot]) ||0) : 0,
           face: resolveFace(effFace>=0 ? cols[effFace] : '', isMirror),
           ipn:  ''
         });
@@ -3935,7 +3987,7 @@ window.aoi_runConvert = runConvert;
 <script>
 /* ---- onglets Methodes v4.0 ---- */
 (function(){
-  var APP_VERSION_G = "5.18", APP_DATE_G = "03/11/2026"; // v5.18 : PnP v3.15 — un format client enregistré qui sort des coordonnées X/Y toutes à zéro (ses colonnes n'existent pas dans le fichier déposé) est écarté au profit de la détection automatique ; cas RTSYS 03/11/2026, export centroïde « Mid X / Mid Y » lu alors que la fiche client attend « Center-X(mm) » d'Altium — v5.17 : Comparateur BOM v1.4 — BOM PFEIFFER lue (profil dédié, dossier P0711N1 A4) : en-têtes trompeurs remis dans l'ordre (« Part Number » = le repère, « Designation » = le MPN, « Active reference » = les caractéristiques, « Supplier » = le fabricant), « ACCORDING TO CHARACTERISTICS / SP4337 » = case vide (contrôle sur caractéristiques pour toutes les R et C), « Active reference 2/3 » = équivalents acceptés par le client, « Part Reference » (réf. interne client) affichée pour info et jamais source de décision, remarques de la colonne « Comments » remontées et contrôlées ligne par ligne — v5.16 : Comparateur BOM v1.3 — BOM AMG Microwave lue : colonne « Homologation fabricants » = MPN, format « FABRICANT (MPN1, MPN2) » découpé, noms internes client écartés (contrôle sur caractéristiques), valeurs R « 47R / 49R9 / 1K5 » lues dans la désignation, fourniture client Luminovo (Supplier « client ») reconnue (cas CAR0493 B) — v5.15 : étape 6 — attribution bloquée avec message clair si le SO a déjà des supports pour une autre BOM (IPN différents) ; plus d'étiquettes qui ne correspondent pas à la BOM (cas SO2609-518) — v5.14 : Comparateur BOM v1.2 — NC client + non placé chez nous = bloc « Non câblés » (hors compteurs) ; NC d'un seul côté = Erreur (cas SICPA SO2609-492, C45) — v5.10 (Jérôme : tout l'onglet Sens connecteurs du 09/10 reste en v5.10 ; numéros internes 5.11 à 5.13 ci-dessous) — v5.13 : Sens connecteurs v1.3 — plan client PDF : affichage, repérage auto si le plan contient le texte du repère, capture de la zone par connecteur, extrait sur la feuille signée — v5.12 : Sens connecteurs v1.2 — texte « pas de détrompeur » clarifié (c'est la fiche fournisseur qui ne dit rien, pas la datasheet) — v5.11 : Sens connecteurs v1.1 — recherche automatique des fiches DigiKey/Mouser (gratuit, sans IA) pour les connecteurs non connus — v5.10 : onglet « Sens connecteurs » v1.0 — feuille sens des connecteurs (tri depuis la BOM, pièges connus TFML/TFC/TEM, décision + signature méthodes, feuille PDF pour le poste ; chantier 203) — v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
+  var APP_VERSION_G = "5.19", APP_DATE_G = "04/11/2026"; // v5.19 : PnP v3.16 — fichier dont les noms de colonnes sont inutilisables (en-tête sur 2 lignes avec cellule fusionnée « Origine » au-dessus de X et Y, ligne de séparation ++++) : le repère et la rotation sont devinés d'après le contenu des colonnes ; cas P0742CMP_A2 (526 lignes, 0 lue avant). Corrige au passage les fichiers type SYNOPSIS dont la colonne « Orient. » n'était pas reconnue et dont toutes les rotations tombaient à 0 — v5.18 : PnP v3.15 — un format client enregistré qui sort des coordonnées X/Y toutes à zéro (ses colonnes n'existent pas dans le fichier déposé) est écarté au profit de la détection automatique ; cas RTSYS 03/11/2026, export centroïde « Mid X / Mid Y » lu alors que la fiche client attend « Center-X(mm) » d'Altium — v5.17 : Comparateur BOM v1.4 — BOM PFEIFFER lue (profil dédié, dossier P0711N1 A4) : en-têtes trompeurs remis dans l'ordre (« Part Number » = le repère, « Designation » = le MPN, « Active reference » = les caractéristiques, « Supplier » = le fabricant), « ACCORDING TO CHARACTERISTICS / SP4337 » = case vide (contrôle sur caractéristiques pour toutes les R et C), « Active reference 2/3 » = équivalents acceptés par le client, « Part Reference » (réf. interne client) affichée pour info et jamais source de décision, remarques de la colonne « Comments » remontées et contrôlées ligne par ligne — v5.16 : Comparateur BOM v1.3 — BOM AMG Microwave lue : colonne « Homologation fabricants » = MPN, format « FABRICANT (MPN1, MPN2) » découpé, noms internes client écartés (contrôle sur caractéristiques), valeurs R « 47R / 49R9 / 1K5 » lues dans la désignation, fourniture client Luminovo (Supplier « client ») reconnue (cas CAR0493 B) — v5.15 : étape 6 — attribution bloquée avec message clair si le SO a déjà des supports pour une autre BOM (IPN différents) ; plus d'étiquettes qui ne correspondent pas à la BOM (cas SO2609-518) — v5.14 : Comparateur BOM v1.2 — NC client + non placé chez nous = bloc « Non câblés » (hors compteurs) ; NC d'un seul côté = Erreur (cas SICPA SO2609-492, C45) — v5.10 (Jérôme : tout l'onglet Sens connecteurs du 09/10 reste en v5.10 ; numéros internes 5.11 à 5.13 ci-dessous) — v5.13 : Sens connecteurs v1.3 — plan client PDF : affichage, repérage auto si le plan contient le texte du repère, capture de la zone par connecteur, extrait sur la feuille signée — v5.12 : Sens connecteurs v1.2 — texte « pas de détrompeur » clarifié (c'est la fiche fournisseur qui ne dit rien, pas la datasheet) — v5.11 : Sens connecteurs v1.1 — recherche automatique des fiches DigiKey/Mouser (gratuit, sans IA) pour les connecteurs non connus — v5.10 : onglet « Sens connecteurs » v1.0 — feuille sens des connecteurs (tri depuis la BOM, pièges connus TFML/TFC/TEM, décision + signature méthodes, feuille PDF pour le poste ; chantier 203) — v5.9 : Comparateur BOM v1.1 — BOM client type Altium/RTSYS lue (en-tête sous cartouche, « RefFabricant » collé, caractéristiques dans la Description, références passives incomplètes, ligne de pied écartée, remarques sous le tableau) + export Luminovo « scénario de sourcing » accepté et pièces approuvées reconnues — v5.8 : onglet « Comparateur BOM » (BOM client ↔ export Luminovo) — v5.7 : bandeau « version hors ligne » + message clair à l'attribution des supports
   document.title = "MYCenter Prep \u2014 v" + APP_VERSION_G + " \u2014 " + APP_DATE_G;
   function poser(){
     var h = document.getElementById('hdr-version');
